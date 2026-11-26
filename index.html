@@ -8,6 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- jsPDF + AutoTable (untuk Download PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -99,9 +102,6 @@
                 Auto: 60d
               </span>
             </div>
-            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Sumber data eksklusif dari spreadsheet LOGBOOK CRO (ID: 1YnO5vOajubqc_kvTk-B9mOij_QnQJmYxccuYwe7AYo0)
-            </p>
           </div>
         </div>
 
@@ -120,35 +120,13 @@
 
           <button
             type="button"
-            onclick="openImportModal()"
-            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-          >
-            <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <span>Impor / Paste CSV</span>
-          </button>
-
-          <button
-            type="button"
-            onclick="exportToCSV()"
-            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-          >
-            <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span>Ekspor CSV</span>
-          </button>
-
-          <button
-            type="button"
-            onclick="openCandidateModal()"
+            onclick="downloadDashboardPDF()"
             class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs transition cursor-pointer"
           >
-            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span>Tambah Kandidat</span>
+            <span>Download PDF</span>
           </button>
         </div>
       </div>
@@ -1326,6 +1304,7 @@
         return true;
       });
 
+      window.__filteredData = filtered;
       renderKPIs(filtered);
       renderBranchCards(filtered, branch);
       renderCharts(filtered);
@@ -1942,6 +1921,362 @@
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       showToast('File CSV berhasil diunduh.', 'success');
+    }
+
+    /* ============================================================
+     * DOWNLOAD PDF PRESENTASI (jsPDF + autoTable)
+     * Mengikuti filter yang sedang aktif di dashboard.
+     * ============================================================ */
+    const PDF_C = {
+      indigo: [67, 56, 202], dark: [30, 27, 75], ink: [15, 23, 42], muted: [100, 116, 139],
+      blue: [37, 99, 235], green: [5, 150, 105], red: [220, 38, 38], amber: [217, 119, 6],
+      violet: [124, 58, 237], light: [241, 245, 249], line: [226, 232, 240], white: [255, 255, 255]
+    };
+
+    function pdfFit(doc, text, maxW) {
+      let t = String(text == null ? '' : text);
+      if (doc.getTextWidth(t) <= maxW) return t;
+      while (t.length > 1 && doc.getTextWidth(t + '...') > maxW) t = t.slice(0, -1);
+      return t + '...';
+    }
+
+    function pdfCountBy(data, field, limit) {
+      const map = new Map();
+      data.forEach((d) => {
+        const k = (d[field] && String(d[field]).trim()) || '-';
+        map.set(k, (map.get(k) || 0) + 1);
+      });
+      let entries = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+      if (limit && entries.length > limit) {
+        const rest = entries.slice(limit - 1).reduce((s, e) => s + e[1], 0);
+        entries = entries.slice(0, limit - 1);
+        entries.push(['Lainnya', rest]);
+      }
+      return entries;
+    }
+
+    function pdfFilterSummary() {
+      const parts = [];
+      const q = (document.getElementById('filterSearch').value || '').trim();
+      if (q) parts.push(`Cari: "${q}"`);
+      [['filterBranch', 'Cabang'], ['filterBro', 'BRO'], ['filterSource', 'Source'], ['filterStatus', 'Progress'], ['filterResult', 'Hasil']]
+        .forEach(([id, label]) => {
+          const v = document.getElementById(id).value;
+          if (v && v !== 'ALL') parts.push(`${label}: ${v}`);
+        });
+      return parts.length ? parts.join('  |  ') : 'Semua data (tanpa filter)';
+    }
+
+    function downloadDashboardPDF() {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('Library PDF belum termuat. Periksa koneksi internet lalu coba lagi.', 'error');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const data = Array.isArray(window.__filteredData) ? window.__filteredData : appState.candidates;
+      const W = 297, H = 167, M = 14;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
+      const now = new Date();
+      const nowLabel = now.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+
+      const total = data.length;
+      const accepted = data.filter((d) => isAcceptedResult(d.hasil)).length;
+      const rejected = data.filter((d) => isRejectedResult(d.hasil)).length;
+      const processing = total - accepted - rejected;
+      const activeBranches = new Set(data.map((d) => d.cabang).filter(Boolean)).size;
+      const rate = total > 0 ? (accepted / total) * 100 : 0;
+      const rateLabel = rate.toFixed(1).replace('.', ',') + '%';
+
+      const setFill = (c) => doc.setFillColor(c[0], c[1], c[2]);
+      const setText = (c) => doc.setTextColor(c[0], c[1], c[2]);
+      const setDraw = (c) => doc.setDrawColor(c[0], c[1], c[2]);
+
+      function header(title, subtitle) {
+        setFill(PDF_C.indigo);
+        doc.rect(0, 0, W, 24, 'F');
+        setFill(PDF_C.dark);
+        doc.rect(0, 0, 6, 24, 'F');
+        setText(PDF_C.white);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text(title, M, 15);
+        if (subtitle) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text(subtitle, W - M, 15, { align: 'right' });
+        }
+      }
+
+      /* ---------- Slide 1: Cover ---------- */
+      setFill(PDF_C.dark);
+      doc.rect(0, 0, W, H, 'F');
+      setFill(PDF_C.indigo);
+      doc.rect(0, 0, 10, H, 'F');
+      setFill([55, 48, 163]);
+      doc.circle(W - 20, 20, 55, 'F');
+      setFill([79, 70, 229]);
+      doc.circle(W - 5, H + 5, 38, 'F');
+
+      setText([199, 210, 254]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('LAPORAN DASHBOARD', 28, 58);
+      setText(PDF_C.white);
+      doc.setFontSize(34);
+      doc.text('Monitoring Perekrutan CRO', 28, 74);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(15);
+      setText([199, 210, 254]);
+      doc.text(`${BRANCHES.length} Cabang  |  LOGBOOK CRO`, 28, 86);
+
+      setFill([255, 255, 255]);
+      doc.rect(28, 98, 40, 0.8, 'F');
+      doc.setFontSize(10);
+      setText(PDF_C.white);
+      doc.text(`Dibuat: ${nowLabel}`, 28, 110);
+      doc.text(`Sinkronisasi terakhir: ${appState.lastSyncedAt || '-'}`, 28, 117);
+      doc.text(`Sumber data: ${appState.sourceLabel}`, 28, 124);
+      doc.text(pdfFit(doc, `Filter: ${pdfFilterSummary()}`, 200), 28, 131);
+
+      /* ---------- Slide 2: Ringkasan KPI ---------- */
+      doc.addPage();
+      header('Ringkasan Perekrutan', `Per ${nowLabel}`);
+
+      const kpis = [
+        { label: 'TOTAL KANDIDAT', value: total.toLocaleString('id-ID'), sub: 'Kandidat terdata', color: PDF_C.indigo },
+        { label: 'DALAM PROSES', value: processing.toLocaleString('id-ID'), sub: total ? `${Math.round((processing / total) * 100)}% berjalan` : '-', color: PDF_C.blue },
+        { label: 'LOLOS / JOINT CRO', value: accepted.toLocaleString('id-ID'), sub: total ? `${Math.round((accepted / total) * 100)}% terkonversi` : '-', color: PDF_C.green },
+        { label: 'CABANG AKTIF', value: `${activeBranches} / ${BRANCHES.length}`, sub: 'Cabang memiliki data', color: PDF_C.violet },
+        { label: 'RASIO LOLOS', value: rateLabel, sub: 'Lolos / total kandidat', color: PDF_C.amber }
+      ];
+      const gap = 6;
+      const cw = (W - 2 * M - gap * 4) / 5;
+      kpis.forEach((k, i) => {
+        const x = M + i * (cw + gap);
+        setFill(PDF_C.light);
+        doc.roundedRect(x, 34, cw, 52, 3, 3, 'F');
+        setFill(k.color);
+        doc.roundedRect(x, 34, cw, 2.5, 1, 1, 'F');
+        setText(PDF_C.muted);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(k.label, x + 5, 46);
+        setText(k.color);
+        doc.setFontSize(24);
+        doc.text(k.value, x + 5, 67);
+        setText(PDF_C.muted);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text(pdfFit(doc, k.sub, cw - 10), x + 5, 78);
+      });
+
+      // Insight
+      const byBranch = BRANCHES.map((b) => ({
+        b, n: data.filter((d) => d.cabang === b).length, a: data.filter((d) => d.cabang === b && isAcceptedResult(d.hasil)).length
+      }));
+      const topBranch = byBranch.slice().sort((x, y) => y.n - x.n)[0];
+      const topAccepted = byBranch.slice().sort((x, y) => y.a - x.a)[0];
+      const topSource = pdfCountBy(data, 'source')[0];
+      const topStatus = pdfCountBy(data, 'statusProgress')[0];
+
+      setFill(PDF_C.white);
+      setDraw(PDF_C.line);
+      doc.roundedRect(M, 94, W - 2 * M, 58, 3, 3, 'FD');
+      setText(PDF_C.ink);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Sorotan Data', M + 6, 104);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10.5);
+      const insights = total === 0
+        ? ['Belum ada data kandidat untuk filter yang dipilih.']
+        : [
+            `Cabang dengan kandidat terbanyak: ${topBranch.b} (${topBranch.n} kandidat).`,
+            topAccepted.a > 0 ? `Cabang dengan kandidat lolos terbanyak: ${topAccepted.b} (${topAccepted.a} kandidat).` : 'Belum ada kandidat yang lolos / joint.',
+            `Sumber kandidat terbanyak: ${topSource ? topSource[0] : '-'} (${topSource ? topSource[1] : 0} kandidat).`,
+            `Status progress terbanyak: ${topStatus ? topStatus[0] : '-'} (${topStatus ? topStatus[1] : 0} kandidat).`,
+            `Rasio lolos keseluruhan ${rateLabel} dari ${total} kandidat.`
+          ];
+      insights.forEach((line, i) => {
+        setFill(PDF_C.indigo);
+        doc.circle(M + 8, 112 + i * 8.5 - 1.2, 1, 'F');
+        setText(PDF_C.ink);
+        doc.text(pdfFit(doc, line, W - 2 * M - 24), M + 12, 112 + i * 8.5);
+      });
+
+      /* ---------- Slide 3: Kandidat per Cabang ---------- */
+      doc.addPage();
+      header('Kandidat per Cabang', 'Proses | Lolos | Tidak lolos');
+
+      // legend
+      const legend = [['Dalam proses', PDF_C.blue], ['Lolos / Joint', PDF_C.green], ['Tidak lolos / Cancel', PDF_C.red]];
+      let lx = M;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      legend.forEach(([label, col]) => {
+        setFill(col);
+        doc.roundedRect(lx, 29.5, 4, 4, 1, 1, 'F');
+        setText(PDF_C.ink);
+        doc.text(label, lx + 6, 33);
+        lx += 8 + doc.getTextWidth(label) + 8;
+      });
+
+      const maxTotal = Math.max(1, ...byBranch.map((x) => x.n));
+      const barX = M + 42, barMaxW = W - M - barX - 22, rowH = 12.2, y0 = 42;
+      byBranch.forEach((row, i) => {
+        const y = y0 + i * rowH;
+        if (i % 2 === 0) {
+          setFill([248, 250, 252]);
+          doc.rect(M, y - 3, W - 2 * M, rowH, 'F');
+        }
+        setText(PDF_C.ink);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.text(row.b, M + 3, y + 4);
+
+        const rows = data.filter((d) => d.cabang === row.b);
+        const a = rows.filter((d) => isAcceptedResult(d.hasil)).length;
+        const r = rows.filter((d) => isRejectedResult(d.hasil)).length;
+        const p = rows.length - a - r;
+        let cx = barX;
+        [[p, PDF_C.blue], [a, PDF_C.green], [r, PDF_C.red]].forEach(([n, col]) => {
+          if (n <= 0) return;
+          const w = (n / maxTotal) * barMaxW;
+          setFill(col);
+          doc.rect(cx, y, w, 6, 'F');
+          if (w > 7) {
+            setText(PDF_C.white);
+            doc.setFontSize(7.5);
+            doc.text(String(n), cx + w / 2, y + 4.2, { align: 'center' });
+          }
+          cx += w;
+        });
+        setText(PDF_C.muted);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(String(row.n), (row.n > 0 ? cx : barX) + 3, y + 4.5);
+      });
+
+      /* ---------- Slide 4: Distribusi ---------- */
+      doc.addPage();
+      header('Distribusi Kandidat', 'Status Progress | Hasil | Source');
+
+      const panels = [
+        { title: 'Status Progress', field: 'statusProgress', color: PDF_C.indigo },
+        { title: 'Hasil', field: 'hasil', color: PDF_C.green },
+        { title: 'Source', field: 'source', color: PDF_C.amber }
+      ];
+      const pg = 8;
+      const pw = (W - 2 * M - pg * 2) / 3;
+      panels.forEach((pn, i) => {
+        const x = M + i * (pw + pg);
+        setFill(PDF_C.light);
+        doc.roundedRect(x, 32, pw, 122, 3, 3, 'F');
+        setText(PDF_C.ink);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(pn.title, x + 6, 43);
+
+        const entries = pdfCountBy(data, pn.field, 8);
+        const maxV = Math.max(1, ...entries.map((e) => e[1]));
+        if (!entries.length) {
+          setText(PDF_C.muted);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('Tidak ada data', x + 6, 55);
+        }
+        entries.forEach(([label, n], j) => {
+          const y = 52 + j * 12;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          setText(PDF_C.ink);
+          doc.text(pdfFit(doc, label === '-' ? 'Belum diisi' : label, pw - 12), x + 6, y);
+          setFill([226, 232, 240]);
+          doc.roundedRect(x + 6, y + 1.8, pw - 12 - 12, 3.4, 1.2, 1.2, 'F');
+          setFill(pn.color);
+          const bw = Math.max(1.5, (n / maxV) * (pw - 24));
+          doc.roundedRect(x + 6, y + 1.8, bw, 3.4, 1.2, 1.2, 'F');
+          setText(PDF_C.muted);
+          doc.setFont('helvetica', 'bold');
+          doc.text(String(n), x + pw - 6, y + 5, { align: 'right' });
+        });
+      });
+
+      /* ---------- Slide 5: Ringkasan per Cabang (tabel) ---------- */
+      doc.addPage();
+      header('Ringkasan per Cabang', `${total} kandidat`);
+      const summaryBody = byBranch.map((r) => {
+        const rows = data.filter((d) => d.cabang === r.b);
+        const a = rows.filter((d) => isAcceptedResult(d.hasil)).length;
+        const rj = rows.filter((d) => isRejectedResult(d.hasil)).length;
+        const pr = rows.length - a - rj;
+        return [r.b, rows.length, pr, a, rj, rows.length ? ((a / rows.length) * 100).toFixed(1).replace('.', ',') + '%' : '-'];
+      });
+      summaryBody.push(['TOTAL', total, processing, accepted, rejected, rateLabel]);
+      doc.autoTable({
+        startY: 31,
+        margin: { left: M, right: M },
+        head: [['Cabang', 'Total', 'Dalam Proses', 'Lolos / Joint', 'Tidak Lolos', 'Rasio Lolos']],
+        body: summaryBody,
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 2.6, lineColor: PDF_C.line, lineWidth: 0.2, textColor: PDF_C.ink },
+        headStyles: { fillColor: PDF_C.indigo, textColor: PDF_C.white, fontStyle: 'bold', halign: 'center' },
+        columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' } },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        didParseCell: (h) => {
+          if (h.section === 'body' && h.row.index === summaryBody.length - 1) {
+            h.cell.styles.fontStyle = 'bold';
+            h.cell.styles.fillColor = [224, 231, 255];
+          }
+        }
+      });
+
+      /* ---------- Slide 6+: Daftar Kandidat ---------- */
+      doc.addPage();
+      const candBody = data.length
+        ? data.map((d, i) => [i + 1, d.tanggal || '-', d.cabang || '-', d.bro || '-', d.source || '-', d.nama || '-', d.usia || '-', d.alamat || '-', d.noHp || '-', d.statusProgress || '-', d.hasil || '-', d.keterangan || ''])
+        : [[{ content: 'Tidak ada data kandidat untuk filter yang dipilih.', colSpan: 12, styles: { halign: 'center' } }]];
+      doc.autoTable({
+        startY: 30,
+        margin: { top: 30, left: M, right: M, bottom: 14 },
+        head: [['No', 'Tanggal', 'Cabang', 'BRO', 'Source', 'Nama Kandidat', 'Usia', 'Alamat', 'No HP', 'Status Progress', 'Hasil', 'Keterangan']],
+        body: candBody,
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 1.8, lineColor: PDF_C.line, lineWidth: 0.2, textColor: PDF_C.ink, overflow: 'linebreak' },
+        headStyles: { fillColor: PDF_C.dark, textColor: PDF_C.white, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 20 }, 2: { cellWidth: 24 }, 3: { cellWidth: 18 },
+          4: { cellWidth: 18 }, 5: { cellWidth: 34, fontStyle: 'bold' }, 6: { cellWidth: 10, halign: 'center' },
+          7: { cellWidth: 36 }, 8: { cellWidth: 22 }, 9: { cellWidth: 30 }, 10: { cellWidth: 24 }, 11: { cellWidth: 25 }
+        },
+        willDrawPage: () => header('Daftar Kandidat', `${total} kandidat`),
+        didParseCell: (h) => {
+          if (h.section === 'body' && h.column.index === 10 && typeof h.cell.raw === 'string') {
+            if (isAcceptedResult(h.cell.raw)) h.cell.styles.textColor = PDF_C.green;
+            else if (isRejectedResult(h.cell.raw)) h.cell.styles.textColor = PDF_C.red;
+            h.cell.styles.fontStyle = 'bold';
+          }
+        }
+      });
+
+      /* ---------- Footer & nomor halaman ---------- */
+      const pages = doc.getNumberOfPages();
+      for (let p = 2; p <= pages; p++) {
+        doc.setPage(p);
+        setDraw(PDF_C.line);
+        doc.line(M, H - 9, W - M, H - 9);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        setText(PDF_C.muted);
+        doc.text('Monitoring Perekrutan CRO  |  LOGBOOK CRO', M, H - 4.5);
+        doc.text(`Halaman ${p} dari ${pages}`, W - M, H - 4.5, { align: 'right' });
+      }
+
+      const stamp = now.toISOString().slice(0, 10);
+      doc.save(`Dashboard-CRO-${stamp}.pdf`);
+      showToast('PDF presentasi berhasil dibuat.', 'success');
     }
 
     function showToast(message, type = 'info') {

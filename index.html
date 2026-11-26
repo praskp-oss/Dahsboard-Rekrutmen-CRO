@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Monitoring Perekrutan CRO — 10 Cabang (LOGBOOK CRO)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      overflow-x: hidden;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+
+  <!-- Kontainer Notifikasi Toast -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Header Aplikasi -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex items-start sm:items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+                Monitoring Perekrutan CRO
+              </h1>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                10 Cabang
+              </span>
+              <span id="dataModeBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                Snapshot Spreadsheet
+              </span>
+              <span id="countdownBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                Auto: 60d
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+              Sumber data eksklusif dari spreadsheet LOGBOOK CRO (ID: 1YnO5vOajubqc_kvTk-B9mOij_QnQJmYxccuYwe7AYo0)
+            </p>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Utama -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onclick="syncFromGoogleSheets(false)"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition cursor-pointer"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Sinkronkan Sheet</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="openImportModal()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+          >
+            <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span>Impor / Paste CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="exportToCSV()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+          >
+            <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Ekspor CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="openCandidateModal()"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs transition cursor-pointer"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Tambah Kandidat</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Konten Utama -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- 5 Kartu KPI Utama -->
+    <section aria-label="Ringkasan KPI Perekrutan" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Kandidat</span>
+          <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </span>
+        </div>
+        <div id="kpiTotal" class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900">0</div>
+        <p id="kpiTotalSub" class="mt-1 text-xs text-slate-500">Dari 0 total kandidat</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Dalam Proses</span>
+          <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+        </div>
+        <div id="kpiProcess" class="mt-3 text-2xl sm:text-3xl font-bold text-blue-700">0</div>
+        <p id="kpiProcessSub" class="mt-1 text-xs text-slate-500">Tahapan berjalan</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Lolos / Joint CRO</span>
+          <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+        </div>
+        <div id="kpiAccepted" class="mt-3 text-2xl sm:text-3xl font-bold text-emerald-700">0</div>
+        <p id="kpiAcceptedSub" class="mt-1 text-xs text-slate-500">Kandidat lolos seleksi</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Cabang Aktif</span>
+          <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </span>
+        </div>
+        <div id="kpiBranches" class="mt-3 text-2xl sm:text-3xl font-bold text-violet-700">0 / 10</div>
+        <p class="mt-1 text-xs text-slate-500">Cabang memiliki data</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs sm:col-span-2 xl:col-span-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Rasio Lolos</span>
+          <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </span>
+        </div>
+        <div id="kpiRate" class="mt-3 text-2xl sm:text-3xl font-bold text-amber-700">0,0%</div>
+        <p class="mt-1 text-xs text-slate-500">Lolos / total kandidat</p>
+      </div>
+    </section>
+
+    <!-- Filter Berlapis -->
+    <section aria-label="Filter Berlapis Kandidat" class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <h2 class="text-sm font-bold text-slate-800">Filter Berlapis &amp; Pencarian Teks</h2>
+          <span id="activeFilterBadge" class="hidden px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700"></span>
+        </div>
+        <button
+          type="button"
+          onclick="resetFilters()"
+          class="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition self-start sm:self-auto cursor-pointer"
+        >
+          Reset Semua Filter
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mt-4">
+        <div class="sm:col-span-2 lg:col-span-2">
+          <label for="filterSearch" class="block text-xs font-medium text-slate-600 mb-1">Pencarian Teks (Nama, No HP, Alamat, Keterangan)</label>
+          <input
+            id="filterSearch"
+            type="text"
+            oninput="applyFilters()"
+            placeholder="Ketik nama kandidat, no HP, alamat, atau catatan..."
+            class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-slate-50/60 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+          />
+        </div>
+
+        <div>
+          <label for="filterBranch" class="block text-xs font-medium text-slate-600 mb-1">Cabang (10)</label>
+          <select id="filterBranch" onchange="applyFilters()" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+            <option value="ALL">Semua Cabang</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="filterBro" class="block text-xs font-medium text-slate-600 mb-1">BRO</label>
+          <select id="filterBro" onchange="applyFilters()" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+            <option value="ALL">Semua BRO</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="filterSource" class="block text-xs font-medium text-slate-600 mb-1">Source</label>
+          <select id="filterSource" onchange="applyFilters()" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+            <option value="ALL">Semua Source</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-1 lg:grid-cols-2 gap-2">
+          <div>
+            <label for="filterStatus" class="block text-xs font-medium text-slate-600 mb-1">Progress</label>
+            <select id="filterStatus" onchange="applyFilters()" class="w-full px-2.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+              <option value="ALL">Semua</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="filterResult" class="block text-xs font-medium text-slate-600 mb-1">Hasil</label>
+            <select id="filterResult" onchange="applyFilters()" class="w-full px-2.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+              <option value="ALL">Semua</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visualisasi Grafik Interaktif (Chart.js) -->
+    <section aria-label="Visualisasi Grafik Perekrutan" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col">
+        <div class="mb-4">
+          <h2 class="text-base font-bold text-slate-900">Perbandingan Kandidat per Cabang</h2>
+          <p class="text-xs text-slate-500">Total kandidat, dalam proses, dan lolos / joint CRO di 10 cabang</p>
+        </div>
+        <div class="relative flex-1 min-h-[290px] w-full">
+          <canvas id="branchChartCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 id="secondaryChartTitle" class="text-base font-bold text-slate-900">Distribusi Status Progress</h2>
+            <p id="secondaryChartSubtitle" class="text-xs text-slate-500">Sebaran tahapan proses kandidat</p>
+          </div>
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+            <button id="btnDistProgress" type="button" onclick="setDistributionType('progress')" class="px-2.5 py-1 rounded-lg bg-white text-slate-900 shadow-2xs cursor-pointer">
+              Progress
+            </button>
+            <button id="btnDistResult" type="button" onclick="setDistributionType('result')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">
+              Hasil
+            </button>
+            <button id="btnDistSource" type="button" onclick="setDistributionType('source')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">
+              Source
+            </button>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-[290px] w-full flex items-center justify-center">
+          <canvas id="distributionChartCanvas"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ringkasan Performa 10 Cabang -->
+    <section aria-label="Ringkasan Performa 10 Cabang" class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Ringkasan Performa 10 Cabang</h2>
+          <p class="text-xs text-slate-500">Klik kartu cabang untuk memfilter data secara cepat (klik lagi untuk menampilkan semua cabang)</p>
+        </div>
+      </div>
+      <div id="branchCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+    </section>
+
+    <!-- Tabel Logbook Kandidat Lengkap -->
+    <section aria-label="Tabel Logbook Kandidat" class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      <div class="p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-bold text-slate-900">Logbook Kandidat CRO</h2>
+          <span id="tableRowCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            0 baris
+          </span>
+        </div>
+        <span class="text-xs text-slate-500">Geser tabel ke kanan/kiri pada layar sempit untuk melihat seluruh kolom</span>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-xs sm:text-sm">
+          <thead class="bg-slate-50 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+            <tr>
+              <th class="py-3 px-3.5 whitespace-nowrap">No</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Tanggal Bulan Tahun</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Cabang</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">BRO</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Source</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Nama Kandidat</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Usia</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Alamat</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">No HP</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Status Progress</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Hasil</th>
+              <th class="py-3 px-3.5 whitespace-nowrap">Keterangan</th>
+              <th class="py-3 px-3.5 whitespace-nowrap text-right sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="candidatesTableBody" class="divide-y divide-slate-100 bg-white text-slate-700"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500">
+      <span>Dashboard Monitoring Perekrutan CRO • 10 Cabang (LOGBOOK CRO)</span>
+      <span>Sumber data eksklusif spreadsheet ID: 1YnO5vOajubqc_kvTk-B9mOij_QnQJmYxccuYwe7AYo0</span>
+    </div>
+  </footer>
+
+  <!-- Modal Tambah / Edit Kandidat -->
+  <div id="candidateModal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="candidateModalTitle">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 id="candidateModalTitle" class="text-base sm:text-lg font-bold text-slate-900">Tambah Kandidat CRO</h3>
+            <p class="text-xs text-slate-500">Lengkapi data kandidat sesuai kolom monitoring perekrutan CRO</p>
+          </div>
+          <button type="button" onclick="closeCandidateModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer" aria-label="Tutup">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="candidateForm" onsubmit="handleSaveCandidate(event)" class="p-6 space-y-4">
+          <input type="hidden" id="candidateId" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label for="fieldTanggal" class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Bulan Tahun *</label>
+              <input id="fieldTanggal" type="text" required placeholder="11/21/2026" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+            </div>
+
+            <div>
+              <label for="fieldCabang" class="block text-xs font-semibold text-slate-700 mb-1">Cabang *</label>
+              <select id="fieldCabang" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none"></select>
+            </div>
+
+            <div>
+              <label for="fieldBro" class="block text-xs font-semibold text-slate-700 mb-1">BRO *</label>
+              <input id="fieldBro" type="text" required placeholder="Nama BRO" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label for="fieldSource" class="block text-xs font-semibold text-slate-700 mb-1">Source *</label>
+              <input id="fieldSource" list="sourceSuggestions" type="text" required placeholder="Contoh: SOSMED, HR/PA" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+              <datalist id="sourceSuggestions">
+                <option value="SOSMED"></option>
+                <option value="HR/PA"></option>
+                <option value="Job Fair"></option>
+                <option value="Referral"></option>
+                <option value="Walk-in"></option>
+              </datalist>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="fieldNama" class="block text-xs font-semibold text-slate-700 mb-1">Nama Kandidat *</label>
+              <input id="fieldNama" type="text" required placeholder="Nama lengkap kandidat" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label for="fieldUsia" class="block text-xs font-semibold text-slate-700 mb-1">Usia *</label>
+              <input id="fieldUsia" type="number" min="17" max="65" required placeholder="24" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="fieldNoHp" class="block text-xs font-semibold text-slate-700 mb-1">No HP *</label>
+              <input id="fieldNoHp" type="text" required placeholder="8815554225" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label for="fieldAlamat" class="block text-xs font-semibold text-slate-700 mb-1">Alamat *</label>
+            <input id="fieldAlamat" type="text" required placeholder="Alamat domisili kandidat" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="fieldStatus" class="block text-xs font-semibold text-slate-700 mb-1">Status Progress *</label>
+              <input id="fieldStatus" list="statusSuggestions" type="text" required placeholder="Contoh: PROSES PKS, PROSES INTERVIEW, CEK SLIK" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+              <datalist id="statusSuggestions">
+                <option value="PROSES PKS"></option>
+                <option value="PROSES INTERVIEW"></option>
+                <option value="CEK SLIK"></option>
+                <option value="SCREENING CV"></option>
+                <option value="PSIKOTES"></option>
+                <option value="OFFERING / MCU"></option>
+              </datalist>
+            </div>
+
+            <div>
+              <label for="fieldHasil" class="block text-xs font-semibold text-slate-700 mb-1">Hasil *</label>
+              <input id="fieldHasil" list="resultSuggestions" type="text" required placeholder="Contoh: JOINT CRO, DEVIASI, CANCEL JOINT" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none" />
+              <datalist id="resultSuggestions">
+                <option value="JOINT CRO"></option>
+                <option value="DEVIASI"></option>
+                <option value="CANCEL JOINT"></option>
+                <option value="LOLOS"></option>
+                <option value="DALAM PROSES"></option>
+                <option value="TIDAK LOLOS"></option>
+              </datalist>
+            </div>
+          </div>
+
+          <div>
+            <label for="fieldKeterangan" class="block text-xs font-semibold text-slate-700 mb-1">Keterangan</label>
+            <textarea id="fieldKeterangan" rows="2" placeholder="Contoh: Lolos, Cancel" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"></textarea>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <button type="button" onclick="closeCandidateModal()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition cursor-pointer">
+              Batal
+            </button>
+            <button type="submit" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition cursor-pointer">
+              Simpan Data
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Impor / Paste CSV atau Unggah File CSV -->
+  <div id="importModal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-3xl w-full overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 id="importModalTitle" class="text-base sm:text-lg font-bold text-slate-900">Impor / Paste CSV Kandidat</h3>
+            <p class="text-xs text-slate-500">Tempelkan teks CSV/TSV atau unggah file CSV dengan urutan kolom standar LOGBOOK CRO</p>
+          </div>
+          <button type="button" onclick="closeImportModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer" aria-label="Tutup">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="importDefaultBranch" class="block text-xs font-semibold text-slate-700 mb-1">Cabang Default (jika kolom cabang kosong)</label>
+              <select id="importDefaultBranch" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none"></select>
+            </div>
+            <div>
+              <label for="importFileInput" class="block text-xs font-semibold text-slate-700 mb-1">Unggah File CSV dari Spreadsheet</label>
+              <input id="importFileInput" type="file" accept=".csv,.tsv,.txt" onchange="handleImportFileChange(event)" class="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+            </div>
+          </div>
+
+          <div>
+            <label for="importPasteTextarea" class="block text-xs font-semibold text-slate-700 mb-1">Paste Data CSV / TSV Langsung dari Spreadsheet LOGBOOK CRO</label>
+            <textarea
+              id="importPasteTextarea"
+              rows="6"
+              placeholder="11/21/2026,BALIKPAPAN,Deki,HR/PA,Reza,33,Balikpapan,8815554225,PROSES PKS,DEVIASI,Lolos"
+              class="w-full p-3 text-xs font-mono rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"
+            ></textarea>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+            <label class="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <input id="importReplaceAll" type="checkbox" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span>Ganti data aktif dengan hasil impor spreadsheet</span>
+            </label>
+
+            <div class="flex items-center justify-end gap-2">
+              <button type="button" onclick="closeImportModal()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition cursor-pointer">
+                Batal
+              </button>
+              <button type="button" onclick="processImportPaste()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition cursor-pointer">
+                Proses Impor
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Konfirmasi Hapus -->
+  <div id="deleteModal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+        <div>
+          <h3 id="deleteModalTitle" class="text-base font-bold text-slate-900">Hapus Kandidat?</h3>
+          <p id="deleteModalDesc" class="text-xs sm:text-sm text-slate-500 mt-1">Data kandidat yang dihapus tidak dapat dikembalikan.</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition cursor-pointer">
+            Batal
+          </button>
+          <button id="confirmDeleteButton" type="button" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700 transition cursor-pointer">
+            Hapus
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Daftar resmi 10 cabang monitoring perekrutan CRO
+     */
+    const BRANCHES = [
+      'BALIKPAPAN',
+      'SAMARINDA',
+      'TARAKAN',
+      'BONTANG',
+      'PONTIANAK',
+      'SAMPIT',
+      'PALANGKARAYA',
+      'PANGKALAN BUN',
+      'BATULICIN',
+      'BANJARMASIN'
+    ];
+
+    /**
+     * Alias / variasi penulisan nama cabang untuk normalisasi ketat
+     */
+    const BRANCH_ALIASES = {
+      BALIKPAPAN: 'BALIKPAPAN',
+      BPN: 'BALIKPAPAN',
+      SAMARINDA: 'SAMARINDA',
+      SMD: 'SAMARINDA',
+      TARAKAN: 'TARAKAN',
+      TRK: 'TARAKAN',
+      BONTANG: 'BONTANG',
+      BTG: 'BONTANG',
+      PONTIANAK: 'PONTIANAK',
+      PNK: 'PONTIANAK',
+      SAMPIT: 'SAMPIT',
+      SMPT: 'SAMPIT',
+      PALANGKARAYA: 'PALANGKARAYA',
+      'PALANGKA RAYA': 'PALANGKARAYA',
+      PKY: 'PALANGKARAYA',
+      'PANGKALAN BUN': 'PANGKALAN BUN',
+      PANGKALANBUN: 'PANGKALAN BUN',
+      PBU: 'PANGKALAN BUN',
+      BATULICIN: 'BATULICIN',
+      'BATU LICIN': 'BATULICIN',
+      BTL: 'BATULICIN',
+      BANJARMASIN: 'BANJARMASIN',
+      BJM: 'BANJARMASIN'
+    };
+
+    const DEFAULT_SPREADSHEET_ID = '1YnO5vOajubqc_kvTk-B9mOij_QnQJmYxccuYwe7AYo0';
+    const DEFAULT_SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${DEFAULT_SPREADSHEET_ID}/edit?usp=sharing`;
+    const STORAGE_KEY = 'logbook_cro_spreadsheet_state_v7';
+    const DEFAULT_AUTO_REFRESH_MS = 60000; // 60 dtk (hemat kuota Vercel)
+    const PROXY_ENDPOINT = '/api/sheet';
+    const USE_SERVER_PROXY = location.protocol.startsWith('http'); // aktif di Vercel / server lokal
+
+    /**
+     * Snapshot data aktual dari spreadsheet LOGBOOK CRO (BALIKPAPAN & SAMARINDA).
+     */
+    const SPREADSHEET_SNAPSHOT_DATA = [
+      {
+        id: 'sheet-balikpapan-1',
+        tanggal: '11/21/2026',
+        cabang: 'BALIKPAPAN',
+        bro: 'Deki',
+        source: 'HR/PA',
+        nama: 'Reza',
+        usia: 33,
+        alamat: 'Balikpapan',
+        noHp: '8815554225',
+        statusProgress: 'PROSES PKS',
+        hasil: 'DEVIASI',
+        keterangan: 'Lolos'
+      },
+      {
+        id: 'sheet-balikpapan-2',
+        tanggal: '11/21/2026',
+        cabang: 'BALIKPAPAN',
+        bro: 'Ridwan',
+        source: 'SOSMED',
+        nama: 'Maudi',
+        usia: 31,
+        alamat: 'Balikpapan',
+        noHp: '8815554225',
+        statusProgress: 'PROSES INTERVIEW',
+        hasil: 'CANCEL JOINT',
+        keterangan: 'Cancel'
+      },
+      {
+        id: 'sheet-samarinda-1',
+        tanggal: '11/21/2026',
+        cabang: 'SAMARINDA',
+        bro: 'Pras',
+        source: 'HR/PA',
+        nama: 'Ahmad Badillah',
+        usia: 24,
+        alamat: 'Jl. M Said Samarinda',
+        noHp: '8815554225',
+        statusProgress: 'CEK SLIK',
+        hasil: 'JOINT CRO',
+        keterangan: 'Lolos'
+      },
+      {
+        id: 'sheet-samarinda-2',
+        tanggal: '11/21/2026',
+        cabang: 'SAMARINDA',
+        bro: 'Pras',
+        source: 'SOSMED',
+        nama: 'Mia Audina Putri',
+        usia: 25,
+        alamat: 'Jl. Rawasari 3 Dalam Samarinda',
+        noHp: '8815554225',
+        statusProgress: 'CEK SLIK',
+        hasil: 'JOINT CRO',
+        keterangan: 'Lolos'
+      }
+    ];
+
+    function buildBranchCacheMap(list) {
+      const map = {};
+      BRANCHES.forEach((b) => {
+        map[b] = [];
+      });
+      deduplicateCandidates(list || []).forEach((item) => {
+        const normBranch = matchBranchName(item.cabang) || 'BALIKPAPAN';
+        if (!map[normBranch]) map[normBranch] = [];
+        map[normBranch].push({ ...item, cabang: normBranch });
+      });
+      return map;
+    }
+
+    /**
+     * Membuat kunci unik ternormalisasi untuk mencegah baris ganda antar-tab/endpoint
+     */
+    function buildCandidateDedupeKey(item) {
+      const branch = matchBranchName(item.cabang) || String(item.cabang || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      const tanggal = String(item.tanggal || '').trim().toLowerCase().replace(/\s+/g, '');
+      const nama = String(item.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const bro = String(item.bro || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const noHp = String(item.noHp || '').replace(/\D+/g, '') || String(item.noHp || '').trim().toLowerCase();
+      const statusProgress = String(item.statusProgress || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const hasil = String(item.hasil || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      return [branch, tanggal, nama, bro, noHp, statusProgress, hasil].join('|');
+    }
+
+    /**
+     * Menghapus kandidat duplikat sambil mempertahankan urutan kemunculan pertama
+     */
+    function deduplicateCandidates(list) {
+      const seen = new Set();
+      const uniqueList = [];
+      (list || []).forEach((item) => {
+        if (!item) return;
+        const key = buildCandidateDedupeKey(item);
+        if (seen.has(key)) return;
+        seen.add(key);
+        uniqueList.push(item);
+      });
+      return uniqueList;
+    }
+
+    /**
+     * State utama aplikasi
+     */
+    const appState = {
+      sourceLabel: 'Snapshot Spreadsheet',
+      distributionType: 'progress', // 'progress' | 'result' | 'source'
+      candidates: [],
+      lastGoodByBranch: buildBranchCacheMap(SPREADSHEET_SNAPSHOT_DATA),
+      pendingDeleteId: null,
+      lastSyncedAt: '11/21/2026 (4 kandidat)',
+      syncSettings: {
+        url: DEFAULT_SPREADSHEET_URL,
+        endpointMode: 'auto', // 'auto' | 'apps_script' | 'sheets_csv'
+        gid: '',
+        tabs: 'BALIKPAPAN, SAMARINDA, TARAKAN, BONTANG, PONTIANAK, SAMPIT, PALANGKARAYA, PANGKALAN BUN, BATULICIN, BANJARMASIN',
+        autoRefreshMs: DEFAULT_AUTO_REFRESH_MS,
+        branchMode: 'column', // 'column' | 'block'
+        isPaused: false
+      }
+    };
+
+    let branchChart = null;
+    let distributionChart = null;
+    let countdownInterval = null;
+    let remainingSeconds = Math.floor(DEFAULT_AUTO_REFRESH_MS / 1000);
+    let isSyncing = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initBranchSelects();
+      loadStateFromStorage();
+      updateModeUI();
+      refreshAllViews();
+      setupAutoRefreshScheduler(true);
+      syncFromGoogleSheets(true); // tarik data live saat halaman dibuka
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    });
+
+    function initBranchSelects() {
+      const selects = [
+        document.getElementById('filterBranch'),
+        document.getElementById('fieldCabang'),
+        document.getElementById('importDefaultBranch')
+      ];
+
+      selects.forEach((sel, index) => {
+        if (!sel) return;
+        sel.innerHTML = '';
+        if (index === 0) {
+          const allOpt = document.createElement('option');
+          allOpt.value = 'ALL';
+          allOpt.textContent = 'Semua Cabang';
+          sel.appendChild(allOpt);
+        }
+        BRANCHES.forEach((branch) => {
+          const opt = document.createElement('option');
+          opt.value = branch;
+          opt.textContent = branch;
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    function loadStateFromStorage() {
+      // Tampilkan snapshot dulu; data live dari Google Sheets menimpa setelah sinkronisasi pertama.
+      appState.sourceLabel = 'Snapshot Spreadsheet';
+      appState.lastSyncedAt = '11/21/2026 (4 kandidat)';
+      appState.candidates = cloneCandidates(SPREADSHEET_SNAPSHOT_DATA);
+      appState.lastGoodByBranch = buildBranchCacheMap(SPREADSHEET_SNAPSHOT_DATA);
+
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.candidates) || parsed.candidates.length === 0) return;
+
+        appState.candidates = deduplicateCandidates(cloneCandidates(parsed.candidates));
+        if (parsed.lastGoodByBranch && typeof parsed.lastGoodByBranch === 'object') {
+          appState.lastGoodByBranch = parsed.lastGoodByBranch;
+        }
+        if (parsed.sourceLabel) appState.sourceLabel = parsed.sourceLabel;
+        if (parsed.lastSyncedAt) appState.lastSyncedAt = parsed.lastSyncedAt;
+        if (parsed.distributionType) appState.distributionType = parsed.distributionType;
+        if (parsed.syncSettings && typeof parsed.syncSettings === 'object') {
+          appState.syncSettings = { ...appState.syncSettings, ...parsed.syncSettings };
+        }
+      } catch (err) {
+        console.warn('Gagal memuat state dari localStorage:', err);
+      }
+    }
+
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          sourceLabel: appState.sourceLabel,
+          lastSyncedAt: appState.lastSyncedAt,
+          distributionType: appState.distributionType,
+          syncSettings: appState.syncSettings,
+          lastGoodByBranch: appState.lastGoodByBranch,
+          candidates: appState.candidates
+        }));
+      } catch (err) {
+        console.warn('Gagal menyimpan state spreadsheet ke localStorage:', err);
+      }
+    }
+
+    function cloneCandidates(list) {
+      return list.map((item) => ({ ...item }));
+    }
+
+    function updateCountdownLabels() {
+      const headerBadge = document.getElementById('countdownBadge');
+      const intervalMs = appState.syncSettings.autoRefreshMs;
+
+      if (!intervalMs || intervalMs <= 0) {
+        if (headerBadge) headerBadge.textContent = 'Auto: Off';
+        return;
+      }
+
+      if (isSyncing) {
+        if (headerBadge) headerBadge.textContent = 'Syncing...';
+        return;
+      }
+
+      if (appState.syncSettings.isPaused) {
+        if (headerBadge) headerBadge.textContent = 'Auto: Dijeda';
+        return;
+      }
+
+      if (document.hidden) {
+        if (headerBadge) headerBadge.textContent = 'Auto: Tab Hidden';
+        return;
+      }
+
+      if (headerBadge) headerBadge.textContent = `Auto: ${remainingSeconds}d`;
+    }
+
+    function setupAutoRefreshScheduler(resetTimer = true) {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+
+      const intervalMs = appState.syncSettings.autoRefreshMs;
+      const totalSec = Math.max(1, Math.round((intervalMs || DEFAULT_AUTO_REFRESH_MS) / 1000));
+      if (resetTimer) {
+        remainingSeconds = totalSec;
+      }
+      updateCountdownLabels();
+
+      if (!intervalMs || intervalMs <= 0) return;
+
+      countdownInterval = setInterval(() => {
+        if (appState.syncSettings.isPaused || document.hidden || isSyncing) {
+          updateCountdownLabels();
+          return;
+        }
+
+        remainingSeconds -= 1;
+        if (remainingSeconds <= 0) {
+          remainingSeconds = totalSec;
+          updateCountdownLabels();
+          syncFromGoogleSheets(true);
+        } else {
+          updateCountdownLabels();
+        }
+      }, 1000);
+    }
+
+    function handleVisibilityChange() {
+      updateCountdownLabels();
+    }
+
+    function updateModeUI() {
+      const badge = document.getElementById('dataModeBadge');
+      if (!badge) return;
+
+      badge.textContent = appState.sourceLabel;
+      if (appState.sourceLabel.includes('Live')) {
+        badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200';
+      } else if (appState.sourceLabel.includes('CSV')) {
+        badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200';
+      } else {
+        badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200';
+      }
+    }
+
+    function isAppsScriptExecUrl(url) {
+      return /https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/i.test(String(url || '').trim());
+    }
+
+    function buildEndpointPlans(urlInput, gidInput, tabsInput, endpointMode) {
+      const trimmed = (urlInput || '').trim() || DEFAULT_SPREADSHEET_URL;
+      const idMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      const sheetId = idMatch ? idMatch[1] : DEFAULT_SPREADSHEET_ID;
+
+      const gidMatch = trimmed.match(/[?&]gid=([0-9,\s]+)|#gid=([0-9,\s]+)/i);
+      const gidRaw = (gidInput || '').trim() || (gidMatch ? (gidMatch[1] || gidMatch[2] || '').trim() : '');
+      const gidList = gidRaw
+        ? gidRaw.split(/[\s,;]+/).map((g) => g.trim()).filter(Boolean)
+        : [];
+
+      const tabList = (tabsInput || '')
+        .split(/[,;\n]+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((t) => matchBranchName(t) || t.toUpperCase())
+        .filter(Boolean);
+
+      const plans = [];
+      const includeAppsScript = endpointMode === 'auto' || endpointMode === 'apps_script';
+      const includeSheetsCsv = endpointMode === 'auto' || endpointMode === 'sheets_csv';
+
+      if (includeAppsScript && isAppsScriptExecUrl(trimmed)) {
+        if (tabList.length > 0) {
+          tabList.forEach((tabName) => {
+            const sep = trimmed.includes('?') ? '&' : '?';
+            plans.push({
+              kind: 'apps_script',
+              targetLabel: `AppsScript:${tabName}`,
+              expectedBranch: matchBranchName(tabName) || '',
+              urls: [`${trimmed}${sep}tab=${encodeURIComponent(tabName)}`]
+            });
+          });
+        } else {
+          plans.push({
+            kind: 'apps_script',
+            targetLabel: 'AppsScript:ALL',
+            expectedBranch: '',
+            urls: [trimmed]
+          });
+        }
+      }
+
+      if (includeSheetsCsv && !isAppsScriptExecUrl(trimmed)) {
+        if (gidList.length > 0) {
+          gidList.forEach((gid) => {
+            plans.push({
+              kind: 'sheets_csv',
+              targetLabel: `GID:${gid}`,
+              expectedBranch: '',
+              urls: [
+                `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(gid)}`,
+                `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(gid)}`
+              ]
+            });
+          });
+        }
+
+        if (tabList.length > 0) {
+          tabList.forEach((tabName) => {
+            plans.push({
+              kind: 'sheets_csv',
+              targetLabel: `Tab:${tabName}`,
+              expectedBranch: matchBranchName(tabName) || '',
+              urls: [
+                `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`,
+                `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&sheet=${encodeURIComponent(tabName)}`
+              ]
+            });
+          });
+        }
+
+        if (plans.length === 0) {
+          const directUrls = [];
+          if (trimmed.includes('/export') || trimmed.includes('/gviz/tq') || trimmed.includes('output=csv') || trimmed.includes('format=csv')) {
+            directUrls.push(trimmed);
+          }
+          directUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`);
+          directUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`);
+
+          plans.push({
+            kind: 'sheets_csv',
+            targetLabel: 'DefaultSheet',
+            expectedBranch: '',
+            urls: Array.from(new Set(directUrls))
+          });
+        }
+      }
+
+      return plans;
+    }
+
+    function parseAppsScriptJsonPayload(jsonData, branchMode, fallbackBranch) {
+      if (!jsonData || typeof jsonData !== 'object') return [];
+      const collected = [];
+
+      const pushRowObject = (rowObj, tabHint = '') => {
+        if (!rowObj || typeof rowObj !== 'object') return;
+        const normalizedEntries = {};
+        Object.keys(rowObj).forEach((k) => {
+          const cleanKey = String(k || '').trim().toUpperCase().replace(/\s+/g, ' ');
+          normalizedEntries[cleanKey] = String(rowObj[k] ?? '').trim();
+        });
+
+        const colCabang =
+          normalizedEntries['CABANG'] ||
+          normalizedEntries['BRANCH'] ||
+          normalizedEntries['_TAB'] ||
+          tabHint ||
+          '';
+        const resolvedBranch =
+          branchMode === 'block'
+            ? (matchBranchName(tabHint) || matchBranchName(colCabang) || fallbackBranch)
+            : (matchBranchName(colCabang) || matchBranchName(tabHint) || fallbackBranch);
+
+        const nama =
+          normalizedEntries['NAMA KANDIDAT'] ||
+          normalizedEntries['NAMA'] ||
+          normalizedEntries['KANDIDAT'] ||
+          '';
+        const bro = normalizedEntries['BRO'] || '';
+        const noHp = normalizedEntries['NO HP'] || normalizedEntries['NO. HP'] || normalizedEntries['HP'] || '';
+
+        if (!nama && !bro && !noHp) return;
+        if (matchBranchName(nama) && !bro && !noHp) return;
+
+        collected.push({
+          id: `gas-${Date.now()}-${collected.length}-${Math.random().toString(36).slice(2, 6)}`,
+          tanggal: normalizedEntries['TANGGAL BULAN TAHUN'] || normalizedEntries['TANGGAL'] || '11/21/2026',
+          cabang: resolvedBranch,
+          bro: bro || '-',
+          source: normalizedEntries['SOURCE'] || normalizedEntries['SUMBER'] || '-',
+          nama: nama || '-',
+          usia: parseInt(String(normalizedEntries['USIA'] || '').replace(/\D+/g, ''), 10) || 0,
+          alamat: normalizedEntries['ALAMAT'] || '-',
+          noHp: noHp || '-',
+          statusProgress: normalizedEntries['STATUS PROGRESS'] || normalizedEntries['STATUS'] || '-',
+          hasil: normalizedEntries['HASIL'] || normalizedEntries['HASIL '] || '-',
+          keterangan: normalizedEntries['KETERANGAN'] || ''
+        });
+      };
+
+      if (Array.isArray(jsonData.rows)) {
+        jsonData.rows.forEach((r) => pushRowObject(r, r && r._tab ? r._tab : ''));
+      } else if (Array.isArray(jsonData.data)) {
+        jsonData.data.forEach((r) => pushRowObject(r, r && r._tab ? r._tab : ''));
+      } else if (Array.isArray(jsonData.candidates)) {
+        jsonData.candidates.forEach((r) => pushRowObject(r, r && r._tab ? r._tab : ''));
+      }
+
+      if (jsonData.sheets && typeof jsonData.sheets === 'object' && collected.length === 0) {
+        Object.keys(jsonData.sheets).forEach((sheetKey) => {
+          const arr = jsonData.sheets[sheetKey];
+          if (Array.isArray(arr)) {
+            arr.forEach((r) => pushRowObject(r, sheetKey));
+          }
+        });
+      }
+
+      return collected;
+    }
+
+    async function fetchSinglePlan(plan, branchMode) {
+      let lastReason = '';
+
+      for (const baseUrl of plan.urls) {
+        try {
+          let response;
+          if (baseUrl.startsWith('https://docs.google.com/spreadsheets/') && USE_SERVER_PROXY) {
+            // Lewat Vercel Function (/api/sheet) -> tidak kena CORS
+            try {
+              response = await fetch(`${PROXY_ENDPOINT}?u=${encodeURIComponent(baseUrl)}&_t=${Date.now()}`, { cache: 'no-store' });
+              if (!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
+            } catch (proxyErr) {
+              lastReason = proxyErr.message || 'Proxy gagal';
+              response = null;
+            }
+          }
+          if (!response) {
+            const cacheBustedUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + `_t=${Date.now()}`;
+            response = await fetch(cacheBustedUrl, { method: 'GET', cache: 'no-store' });
+          }
+
+          if (!response.ok) {
+            lastReason = `HTTP ${response.status}`;
+            continue;
+          }
+
+          const rawBody = await response.text();
+          const trimmed = rawBody.trim();
+
+          if (!trimmed) {
+            lastReason = 'Respons kosong';
+            continue;
+          }
+
+          if (/^\s*<!doctype html|<html[\s>]/i.test(trimmed)) {
+            lastReason = 'Respons HTML login/izin (bukan data)';
+            continue;
+          }
+
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            const jsonParsed = JSON.parse(trimmed);
+            const rows = parseAppsScriptJsonPayload(jsonParsed, branchMode, plan.expectedBranch || 'BALIKPAPAN');
+            return { ok: true, rows, detail: `${plan.targetLabel} (${rows.length} baris JSON)` };
+          }
+
+          const csvRows = parseSpreadsheetCandidates(trimmed, branchMode, plan.expectedBranch || 'BALIKPAPAN');
+          return { ok: true, rows: csvRows, detail: `${plan.targetLabel} (${csvRows.length} baris CSV)` };
+        } catch (err) {
+          lastReason = err && err.message ? err.message : 'Fetch/CORS error';
+        }
+      }
+
+      return { ok: false, rows: [], detail: `${plan.targetLabel} gagal [${lastReason || 'unknown'}]` };
+    }
+
+    async function syncFromGoogleSheets(isSilent = false) {
+      if (isSyncing) return;
+      isSyncing = true;
+      updateCountdownLabels();
+
+      const plans = buildEndpointPlans(
+        appState.syncSettings.url,
+        appState.syncSettings.gid,
+        appState.syncSettings.tabs,
+        appState.syncSettings.endpointMode
+      );
+
+      let successCount = 0;
+      const fetchedRows = [];
+
+      try {
+        for (const plan of plans) {
+          const outcome = await fetchSinglePlan(plan, appState.syncSettings.branchMode);
+
+          if (outcome.ok) {
+            successCount++;
+            fetchedRows.push(...outcome.rows);
+          }
+        }
+
+        if (successCount === 0) {
+          if (!isSilent) {
+            showToast('Sinkronisasi langsung gagal. Data aktif tetap dipertahankan.', 'error');
+          }
+          return;
+        }
+
+        const freshByBranch = {};
+        deduplicateCandidates(fetchedRows).forEach((row) => {
+          const b = matchBranchName(row.cabang) || 'BALIKPAPAN';
+          if (!freshByBranch[b]) freshByBranch[b] = [];
+          freshByBranch[b].push({ ...row, cabang: b });
+        });
+
+        BRANCHES.forEach((b) => {
+          if (Array.isArray(freshByBranch[b]) && freshByBranch[b].length > 0) {
+            appState.lastGoodByBranch[b] = deduplicateCandidates(freshByBranch[b]);
+          } else if (
+            fetchedRows.length === 0 &&
+            appState.candidates.length > 0 &&
+            (!Array.isArray(appState.lastGoodByBranch[b]) || appState.lastGoodByBranch[b].length === 0)
+          ) {
+            const existingForBranch = appState.candidates.filter((c) => matchBranchName(c.cabang) === b);
+            if (existingForBranch.length > 0) {
+              appState.lastGoodByBranch[b] = deduplicateCandidates(existingForBranch);
+            }
+          }
+        });
+
+        const mergedCandidates = [];
+        BRANCHES.forEach((b) => {
+          const list = appState.lastGoodByBranch[b];
+          if (Array.isArray(list) && list.length > 0) {
+            mergedCandidates.push(...list);
+          }
+        });
+
+        const uniqueMergedCandidates = deduplicateCandidates(mergedCandidates);
+
+        if (uniqueMergedCandidates.length === 0 && appState.candidates.length > 0) {
+          return;
+        }
+
+        appState.candidates = uniqueMergedCandidates;
+        appState.sourceLabel = isAppsScriptExecUrl(appState.syncSettings.url)
+          ? 'Live Apps Script'
+          : 'Live Spreadsheet';
+        appState.lastSyncedAt = new Date().toLocaleString('id-ID');
+        saveStateToStorage();
+        updateModeUI();
+        refreshAllViews();
+
+        if (!isSilent) {
+          showToast(`Sinkronisasi sukses: ${uniqueMergedCandidates.length} kandidat aktif.`, 'success');
+        }
+      } finally {
+        isSyncing = false;
+        if (appState.syncSettings.autoRefreshMs > 0) {
+          remainingSeconds = Math.max(1, Math.round(appState.syncSettings.autoRefreshMs / 1000));
+        }
+        updateCountdownLabels();
+      }
+    }
+
+    function refreshAllViews() {
+      populateDynamicFilters();
+      applyFilters();
+    }
+
+    function populateDynamicFilters() {
+      const configs = [
+        { id: 'filterBro', field: 'bro', defaultLabel: 'Semua BRO' },
+        { id: 'filterSource', field: 'source', defaultLabel: 'Semua Source' },
+        { id: 'filterStatus', field: 'statusProgress', defaultLabel: 'Semua Progress' },
+        { id: 'filterResult', field: 'hasil', defaultLabel: 'Semua Hasil' }
+      ];
+
+      configs.forEach(({ id, field, defaultLabel }) => {
+        const select = document.getElementById(id);
+        const previousValue = select.value;
+        const uniqueValues = Array.from(
+          new Set(appState.candidates.map((item) => (item[field] || '').trim()).filter((v) => v && v !== '-'))
+        ).sort((a, b) => a.localeCompare(b, 'id'));
+
+        select.innerHTML = `<option value="ALL">${escapeHTML(defaultLabel)}</option>`;
+        uniqueValues.forEach((val) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          select.appendChild(opt);
+        });
+
+        select.value = uniqueValues.includes(previousValue) ? previousValue : 'ALL';
+      });
+    }
+
+    function isAcceptedResult(hasilText) {
+      const h = (hasilText || '').toLowerCase();
+      return h.includes('joint') || h.includes('lolos') || h.includes('diterima') || h.includes('hire');
+    }
+
+    function isRejectedResult(hasilText) {
+      const h = (hasilText || '').toLowerCase();
+      return h.includes('cancel') || h.includes('tidak lolos') || h.includes('gagal') || h.includes('tolak');
+    }
+
+    function isInProcessResult(hasilText) {
+      if (!hasilText || hasilText === '-') return true;
+      if (isAcceptedResult(hasilText) || isRejectedResult(hasilText)) return false;
+      return true;
+    }
+
+    function applyFilters() {
+      const search = (document.getElementById('filterSearch').value || '').trim().toLowerCase();
+      const branch = document.getElementById('filterBranch').value;
+      const bro = document.getElementById('filterBro').value;
+      const source = document.getElementById('filterSource').value;
+      const status = document.getElementById('filterStatus').value;
+      const result = document.getElementById('filterResult').value;
+
+      let activeFilters = 0;
+      if (search) activeFilters++;
+      if (branch !== 'ALL') activeFilters++;
+      if (bro !== 'ALL') activeFilters++;
+      if (source !== 'ALL') activeFilters++;
+      if (status !== 'ALL') activeFilters++;
+      if (result !== 'ALL') activeFilters++;
+
+      const filterBadge = document.getElementById('activeFilterBadge');
+      if (activeFilters > 0) {
+        filterBadge.textContent = `${activeFilters} filter aktif`;
+        filterBadge.classList.remove('hidden');
+      } else {
+        filterBadge.classList.add('hidden');
+      }
+
+      const filtered = appState.candidates.filter((item) => {
+        if (branch !== 'ALL' && item.cabang !== branch) return false;
+        if (bro !== 'ALL' && item.bro !== bro) return false;
+        if (source !== 'ALL' && item.source !== source) return false;
+        if (status !== 'ALL' && item.statusProgress !== status) return false;
+        if (result !== 'ALL' && item.hasil !== result) return false;
+
+        if (search) {
+          const haystack = `${item.nama} ${item.noHp} ${item.alamat} ${item.keterangan} ${item.bro} ${item.cabang}`.toLowerCase();
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+
+      renderKPIs(filtered);
+      renderBranchCards(filtered, branch);
+      renderCharts(filtered);
+      renderTable(filtered);
+    }
+
+    function resetFilters() {
+      document.getElementById('filterSearch').value = '';
+      document.getElementById('filterBranch').value = 'ALL';
+      document.getElementById('filterBro').value = 'ALL';
+      document.getElementById('filterSource').value = 'ALL';
+      document.getElementById('filterStatus').value = 'ALL';
+      document.getElementById('filterResult').value = 'ALL';
+      applyFilters();
+    }
+
+    function renderKPIs(data) {
+      const total = data.length;
+      const processCount = data.filter((d) => isInProcessResult(d.hasil)).length;
+      const acceptedCount = data.filter((d) => isAcceptedResult(d.hasil)).length;
+      const activeBranches = new Set(data.map((d) => d.cabang).filter(Boolean));
+      const rate = total > 0 ? ((acceptedCount / total) * 100).toFixed(1).replace('.', ',') : '0,0';
+
+      document.getElementById('kpiTotal').textContent = total.toLocaleString('id-ID');
+      document.getElementById('kpiTotalSub').textContent = `Dari ${appState.candidates.length.toLocaleString('id-ID')} kandidat spreadsheet`;
+      document.getElementById('kpiProcess').textContent = processCount.toLocaleString('id-ID');
+      document.getElementById('kpiProcessSub').textContent = total > 0 ? `${Math.round((processCount / total) * 100)}% berjalan` : '0 kandidat';
+      document.getElementById('kpiAccepted').textContent = acceptedCount.toLocaleString('id-ID');
+      document.getElementById('kpiAcceptedSub').textContent = total > 0 ? `${Math.round((acceptedCount / total) * 100)}% terkonversi` : '0 kandidat';
+      document.getElementById('kpiBranches').textContent = `${activeBranches.size} / ${BRANCHES.length}`;
+      document.getElementById('kpiRate').textContent = `${rate}%`;
+    }
+
+    function renderBranchCards(data, selectedBranch) {
+      const grid = document.getElementById('branchCardsGrid');
+      grid.innerHTML = '';
+
+      BRANCHES.forEach((branchName) => {
+        const rows = data.filter((d) => d.cabang === branchName);
+        const total = rows.length;
+        const processCount = rows.filter((d) => isInProcessResult(d.hasil)).length;
+        const acceptedCount = rows.filter((d) => isAcceptedResult(d.hasil)).length;
+        const isSelected = selectedBranch === branchName;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          const branchSelect = document.getElementById('filterBranch');
+          branchSelect.value = branchSelect.value === branchName ? 'ALL' : branchName;
+          applyFilters();
+        };
+
+        btn.className = `text-left rounded-xl border p-3.5 transition cursor-pointer ${
+          isSelected
+            ? 'border-indigo-600 bg-indigo-50/75 ring-2 ring-indigo-500/20'
+            : 'border-slate-200/90 bg-slate-50/40 hover:bg-white hover:border-indigo-300'
+        }`;
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-bold text-slate-800 truncate">${escapeHTML(branchName)}</span>
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              total > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200/70 text-slate-500'
+            }">${total}</span>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-600">
+            <span>Proses: <strong class="text-blue-700">${processCount}</strong></span>
+            <span>Lolos: <strong class="text-emerald-700">${acceptedCount}</strong></span>
+          </div>
+        `;
+        grid.appendChild(btn);
+      });
+    }
+
+    function setDistributionType(type) {
+      appState.distributionType = type;
+      saveStateToStorage();
+
+      const activeClass = 'px-2.5 py-1 rounded-lg bg-white text-slate-900 shadow-2xs cursor-pointer';
+      const inactiveClass = 'px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer';
+
+      document.getElementById('btnDistProgress').className = type === 'progress' ? activeClass : inactiveClass;
+      document.getElementById('btnDistResult').className = type === 'result' ? activeClass : inactiveClass;
+      document.getElementById('btnDistSource').className = type === 'source' ? activeClass : inactiveClass;
+
+      const titleEl = document.getElementById('secondaryChartTitle');
+      const subEl = document.getElementById('secondaryChartSubtitle');
+
+      if (type === 'progress') {
+        titleEl.textContent = 'Distribusi Status Progress';
+        subEl.textContent = 'Sebaran tahapan proses kandidat';
+      } else if (type === 'result') {
+        titleEl.textContent = 'Distribusi Hasil';
+        subEl.textContent = 'Sebaran hasil seleksi / joint CRO';
+      } else {
+        titleEl.textContent = 'Distribusi Source';
+        subEl.textContent = 'Sebaran sumber kanal kandidat';
+      }
+
+      applyFilters();
+    }
+
+    function renderCharts(data) {
+      renderBranchBarChart(data);
+      renderDistributionDoughnutChart(data);
+    }
+
+    function renderBranchBarChart(data) {
+      const ctx = document.getElementById('branchChartCanvas').getContext('2d');
+      if (branchChart) branchChart.destroy();
+
+      const totals = BRANCHES.map((b) => data.filter((d) => d.cabang === b).length);
+      const processes = BRANCHES.map((b) => data.filter((d) => d.cabang === b && isInProcessResult(d.hasil)).length);
+      const accepteds = BRANCHES.map((b) => data.filter((d) => d.cabang === b && isAcceptedResult(d.hasil)).length);
+
+      branchChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: BRANCHES.map((b) => (b.length > 11 ? `${b.slice(0, 10)}.` : b)),
+          datasets: [
+            {
+              label: 'Total Kandidat',
+              data: totals,
+              backgroundColor: '#4f46e5',
+              borderRadius: 6,
+              maxBarThickness: 20
+            },
+            {
+              label: 'Dalam Proses',
+              data: processes,
+              backgroundColor: '#3b82f6',
+              borderRadius: 6,
+              maxBarThickness: 20
+            },
+            {
+              label: 'Lolos / Joint CRO',
+              data: accepteds,
+              backgroundColor: '#10b981',
+              borderRadius: 6,
+              maxBarThickness: 20
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Cabang ${BRANCHES[items[0]?.dataIndex ?? 0]}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'Inter', size: 10 }, maxRotation: 35 }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, precision: 0, font: { family: 'Inter', size: 11 } },
+              grid: { color: '#f1f5f9' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDistributionDoughnutChart(data) {
+      const ctx = document.getElementById('distributionChartCanvas').getContext('2d');
+      if (distributionChart) distributionChart.destroy();
+
+      const counts = new Map();
+      data.forEach((d) => {
+        const key =
+          appState.distributionType === 'progress'
+            ? (d.statusProgress || '-')
+            : appState.distributionType === 'result'
+              ? (d.hasil || '-')
+              : (d.source || '-');
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+
+      const labels = Array.from(counts.keys());
+      const values = Array.from(counts.values());
+      const palette = ['#4f46e5', '#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
+
+      if (values.length === 0) {
+        distributionChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Belum Ada Data di Spreadsheet'],
+            datasets: [{ data: [1], backgroundColor: ['#e2e8f0'], borderWidth: 0 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '66%',
+            plugins: {
+              legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 } } },
+              tooltip: { enabled: false }
+            }
+          }
+        });
+        return;
+      }
+
+      distributionChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: labels.map((_, idx) => palette[idx % palette.length]),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '64%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('candidatesTableBody');
+      document.getElementById('tableRowCountBadge').textContent = `${data.length} baris`;
+
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="13" class="px-6 py-12 text-center text-sm text-slate-500">
+              Tidak ada baris kandidat yang sesuai dengan filter atau isi spreadsheet saat ini.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = data.map((row, idx) => {
+        const accepted = isAcceptedResult(row.hasil);
+        const rejected = isRejectedResult(row.hasil);
+        const hasilClass = accepted
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : rejected
+            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+            : 'bg-blue-50 text-blue-700 border border-blue-200';
+
+        return `
+          <tr class="hover:bg-slate-50/90 transition">
+            <td class="py-3 px-3.5 whitespace-nowrap text-slate-500 font-medium">${idx + 1}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap">${escapeHTML(row.tanggal)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-800">${escapeHTML(row.cabang)}</span>
+            </td>
+            <td class="py-3 px-3.5 whitespace-nowrap">${escapeHTML(row.bro)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap">${escapeHTML(row.source)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap font-semibold text-slate-900">${escapeHTML(row.nama)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap">${escapeHTML(String(row.usia || '-'))}</td>
+            <td class="py-3 px-3.5 max-w-[220px] truncate" title="${escapeHTML(row.alamat)}">${escapeHTML(row.alamat)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap font-mono text-xs">${escapeHTML(row.noHp)}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">${escapeHTML(row.statusProgress)}</span>
+            </td>
+            <td class="py-3 px-3.5 whitespace-nowrap">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${hasilClass}">${escapeHTML(row.hasil)}</span>
+            </td>
+            <td class="py-3 px-3.5 max-w-[220px] truncate text-slate-600" title="${escapeHTML(row.keterangan)}">${escapeHTML(row.keterangan || '-')}</td>
+            <td class="py-3 px-3.5 whitespace-nowrap text-right sticky right-0 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+              <div class="inline-flex items-center gap-1">
+                <button type="button" onclick="openCandidateModal('${row.id}')" class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer" title="Edit" aria-label="Edit">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button type="button" onclick="openDeleteModal('${row.id}')" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" title="Hapus" aria-label="Hapus">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openCandidateModal(id = null) {
+      const modal = document.getElementById('candidateModal');
+      const form = document.getElementById('candidateForm');
+      form.reset();
+
+      if (id) {
+        const found = appState.candidates.find((c) => c.id === id);
+        if (!found) return;
+        document.getElementById('candidateModalTitle').textContent = 'Edit Kandidat CRO';
+        document.getElementById('candidateId').value = found.id;
+        document.getElementById('fieldTanggal').value = found.tanggal || '';
+        document.getElementById('fieldCabang').value = found.cabang || 'BALIKPAPAN';
+        document.getElementById('fieldBro').value = found.bro || '';
+        document.getElementById('fieldSource').value = found.source || '';
+        document.getElementById('fieldNama').value = found.nama || '';
+        document.getElementById('fieldUsia').value = found.usia || '';
+        document.getElementById('fieldNoHp').value = found.noHp || '';
+        document.getElementById('fieldAlamat').value = found.alamat || '';
+        document.getElementById('fieldStatus').value = found.statusProgress || '';
+        document.getElementById('fieldHasil').value = found.hasil || '';
+        document.getElementById('fieldKeterangan').value = found.keterangan || '';
+      } else {
+        document.getElementById('candidateModalTitle').textContent = 'Tambah Kandidat CRO';
+        document.getElementById('candidateId').value = '';
+        document.getElementById('fieldTanggal').value = '11/21/2026';
+        const activeBranch = document.getElementById('filterBranch').value;
+        document.getElementById('fieldCabang').value = activeBranch !== 'ALL' ? activeBranch : 'BALIKPAPAN';
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeCandidateModal() {
+      document.getElementById('candidateModal').classList.add('hidden');
+    }
+
+    function handleSaveCandidate(event) {
+      event.preventDefault();
+      const id = document.getElementById('candidateId').value;
+      const entry = {
+        id: id || `sheet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        tanggal: document.getElementById('fieldTanggal').value.trim(),
+        cabang: matchBranchName(document.getElementById('fieldCabang').value) || 'BALIKPAPAN',
+        bro: document.getElementById('fieldBro').value.trim(),
+        source: document.getElementById('fieldSource').value.trim(),
+        nama: document.getElementById('fieldNama').value.trim(),
+        usia: parseInt(document.getElementById('fieldUsia').value, 10) || 0,
+        alamat: document.getElementById('fieldAlamat').value.trim(),
+        noHp: document.getElementById('fieldNoHp').value.trim(),
+        statusProgress: document.getElementById('fieldStatus').value.trim(),
+        hasil: document.getElementById('fieldHasil').value.trim(),
+        keterangan: document.getElementById('fieldKeterangan').value.trim()
+      };
+
+      if (id) {
+        const idx = appState.candidates.findIndex((c) => c.id === id);
+        if (idx !== -1) appState.candidates[idx] = entry;
+        showToast(`Data kandidat "${entry.nama}" diperbarui.`, 'success');
+      } else {
+        appState.candidates.unshift(entry);
+        showToast(`Kandidat "${entry.nama}" ditambahkan.`, 'success');
+      }
+
+      appState.lastGoodByBranch = buildBranchCacheMap(appState.candidates);
+      appState.lastSyncedAt = new Date().toLocaleString('id-ID');
+      saveStateToStorage();
+      updateModeUI();
+      closeCandidateModal();
+      refreshAllViews();
+    }
+
+    function openDeleteModal(id) {
+      const target = appState.candidates.find((c) => c.id === id);
+      if (!target) return;
+      appState.pendingDeleteId = id;
+      document.getElementById('deleteModalDesc').textContent = `Hapus kandidat "${target.nama}" dari cabang ${target.cabang}?`;
+      document.getElementById('deleteModal').classList.remove('hidden');
+
+      document.getElementById('confirmDeleteButton').onclick = () => {
+        appState.candidates = appState.candidates.filter((c) => c.id !== appState.pendingDeleteId);
+        appState.pendingDeleteId = null;
+        appState.lastGoodByBranch = buildBranchCacheMap(appState.candidates);
+        appState.lastSyncedAt = new Date().toLocaleString('id-ID');
+        saveStateToStorage();
+        updateModeUI();
+        closeDeleteModal();
+        refreshAllViews();
+        showToast('Kandidat berhasil dihapus.', 'info');
+      };
+    }
+
+    function closeDeleteModal() {
+      appState.pendingDeleteId = null;
+      document.getElementById('deleteModal').classList.add('hidden');
+    }
+
+    function openImportModal() {
+      const activeBranch = document.getElementById('filterBranch').value;
+      document.getElementById('importDefaultBranch').value = activeBranch !== 'ALL' ? activeBranch : 'BALIKPAPAN';
+      document.getElementById('importModal').classList.remove('hidden');
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').classList.add('hidden');
+    }
+
+    function handleImportFileChange(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('importPasteTextarea').value = e.target?.result || '';
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function detectDelimiter(text) {
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 15);
+      let tabs = 0;
+      let commas = 0;
+      lines.forEach((l) => {
+        tabs += (l.match(/\t/g) || []).length;
+        commas += (l.match(/,/g) || []).length;
+      });
+      return tabs > commas ? '\t' : ',';
+    }
+
+    function splitDelimitedLine(line, delimiter) {
+      const out = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === delimiter && !inQuotes) {
+          out.push(cur.trim());
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur.trim());
+      return out;
+    }
+
+    function matchBranchName(raw) {
+      const cleaned = (raw || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      if (!cleaned) return '';
+      if (BRANCHES.includes(cleaned)) return cleaned;
+      if (BRANCH_ALIASES[cleaned]) return BRANCH_ALIASES[cleaned];
+      const found = BRANCHES.find((b) => cleaned === b || cleaned.startsWith(b + ' ') || cleaned.endsWith(' ' + b));
+      return found || '';
+    }
+
+    function isHeaderLine(cols) {
+      const joined = cols.join(' ').toUpperCase();
+      return (
+        joined.includes('NAMA KANDIDAT') ||
+        joined.includes('TANGGAL BULAN TAHUN') ||
+        joined.includes('STATUS PROGRESS') ||
+        (joined.includes('BRO') && joined.includes('SOURCE'))
+      );
+    }
+
+    function parseSpreadsheetCandidates(rawText, branchMode = 'column', fallbackBranch = 'BALIKPAPAN') {
+      const clean = (rawText || '').replace(/^\uFEFF/, '').trim();
+      if (!clean) return [];
+
+      const delimiter = detectDelimiter(clean);
+      const lines = clean.split(/\r?\n/);
+      const results = [];
+      let currentBlockBranch = '';
+
+      lines.forEach((rawLine, idx) => {
+        const line = rawLine.trim();
+        if (!line) return;
+
+        const cols = splitDelimitedLine(line, delimiter);
+        const nonEmptyCols = cols.filter((c) => c !== '');
+
+        if (nonEmptyCols.length === 1) {
+          const blockMatch = matchBranchName(nonEmptyCols[0]);
+          if (blockMatch) {
+            currentBlockBranch = blockMatch;
+            return;
+          }
+        }
+
+        if (isHeaderLine(cols)) return;
+
+        let tanggal, colCabang, bro, source, nama, usia, alamat, noHp, statusProgress, hasil, keterangan;
+        const secondColBranch = matchBranchName(cols[1]);
+
+        if (secondColBranch || cols.length >= 11) {
+          [tanggal, colCabang, bro, source, nama, usia, alamat, noHp, statusProgress, hasil, keterangan] = cols;
+        } else {
+          tanggal = cols[0];
+          colCabang = currentBlockBranch || fallbackBranch;
+          [bro, source, nama, usia, alamat, noHp, statusProgress, hasil, keterangan] = cols.slice(1);
+        }
+
+        const cleanNama = (nama || '').trim();
+        const cleanBro = (bro || '').trim();
+        const cleanHp = (noHp || '').trim();
+
+        if (!cleanNama && !cleanBro && !cleanHp) return;
+        if (matchBranchName(cleanNama) && !cleanBro && !cleanHp) return;
+
+        const resolvedBranch =
+          branchMode === 'block'
+            ? (currentBlockBranch || matchBranchName(colCabang) || matchBranchName(fallbackBranch) || 'BALIKPAPAN')
+            : (matchBranchName(colCabang) || currentBlockBranch || matchBranchName(fallbackBranch) || 'BALIKPAPAN');
+
+        results.push({
+          id: `sheet-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          tanggal: (tanggal || '').trim() || '11/21/2026',
+          cabang: resolvedBranch,
+          bro: cleanBro || '-',
+          source: (source || '-').trim(),
+          nama: cleanNama || '-',
+          usia: parseInt(String(usia || '').replace(/\D+/g, ''), 10) || 0,
+          alamat: (alamat || '-').trim(),
+          noHp: cleanHp || '-',
+          statusProgress: (statusProgress || '-').trim(),
+          hasil: (hasil || '-').trim(),
+          keterangan: (keterangan || '').trim()
+        });
+      });
+
+      return results;
+    }
+
+    function processImportPaste() {
+      const rawText = (document.getElementById('importPasteTextarea').value || '').trim();
+      const defaultBranch = document.getElementById('importDefaultBranch').value;
+      const replaceAll = document.getElementById('importReplaceAll').checked;
+
+      if (!rawText) {
+        showToast('Masukkan teks CSV/TSV atau pilih file CSV terlebih dahulu.', 'error');
+        return;
+      }
+
+      const parsed = parseSpreadsheetCandidates(rawText, appState.syncSettings.branchMode, defaultBranch);
+      if (parsed.length === 0) {
+        showToast('Tidak ada baris data kandidat valid yang terdeteksi dari teks/CSV.', 'error');
+        return;
+      }
+
+      appState.candidates = replaceAll
+        ? deduplicateCandidates(parsed)
+        : deduplicateCandidates([...parsed, ...appState.candidates]);
+      appState.lastGoodByBranch = buildBranchCacheMap(appState.candidates);
+      appState.sourceLabel = 'CSV Spreadsheet';
+      appState.lastSyncedAt = new Date().toLocaleString('id-ID');
+      saveStateToStorage();
+      updateModeUI();
+      closeImportModal();
+      document.getElementById('importPasteTextarea').value = '';
+      document.getElementById('importFileInput').value = '';
+      refreshAllViews();
+      showToast(`${appState.candidates.length} kandidat aktif dimuat dari CSV (duplikat disaring).`, 'success');
+    }
+
+    function exportToCSV() {
+      const headers = [
+        'TANGGAL BULAN TAHUN',
+        'CABANG',
+        'BRO',
+        'SOURCE',
+        'NAMA KANDIDAT',
+        'USIA',
+        'ALAMAT',
+        'NO HP',
+        'STATUS PROGRESS',
+        'HASIL',
+        'KETERANGAN'
+      ];
+
+      const esc = (val) => {
+        const s = String(val ?? '');
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+
+      const lines = [
+        headers.map(esc).join(','),
+        ...appState.candidates.map((c) => [
+          c.tanggal,
+          c.cabang,
+          c.bro,
+          c.source,
+          c.nama,
+          c.usia,
+          c.alamat,
+          c.noHp,
+          c.statusProgress,
+          c.hasil,
+          c.keterangan
+        ].map(esc).join(','))
+      ];
+
+      const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `logbook_cro_10_cabang_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('File CSV berhasil diunduh.', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      const styles = {
+        success: 'bg-emerald-900 text-white border-emerald-700',
+        error: 'bg-rose-900 text-white border-rose-700',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      el.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium transition ${styles[type] || styles.info}`;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.classList.add('opacity-0');
+        setTimeout(() => el.remove(), 250);
+      }, 3000);
+    }
+
+    function escapeHTML(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>

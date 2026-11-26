@@ -272,6 +272,22 @@
           </div>
         </div>
       </div>
+
+      <!-- Filter Periode: Tahun & Bulan -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-3">
+        <div>
+          <label for="filterYear" class="block text-xs font-medium text-slate-600 mb-1">Tahun</label>
+          <select id="filterYear" onchange="applyFilters()" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+            <option value="ALL">Semua Tahun</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterMonth" class="block text-xs font-medium text-slate-600 mb-1">Bulan</label>
+          <select id="filterMonth" onchange="applyFilters()" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white focus:border-indigo-500 outline-none">
+            <option value="ALL">Semua Bulan</option>
+          </select>
+        </div>
+      </div>
     </section>
 
     <!-- Visualisasi Grafik Interaktif (Chart.js) -->
@@ -1223,7 +1239,73 @@
       applyFilters();
     }
 
+    const MONTH_NAMES_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const MONTH_LOOKUP = {
+      jan: 1, januari: 1, january: 1, feb: 2, februari: 2, february: 2, mar: 3, maret: 3, march: 3,
+      apr: 4, april: 4, mei: 5, may: 5, jun: 6, juni: 6, june: 6, jul: 7, juli: 7, july: 7,
+      agu: 8, agt: 8, agus: 8, agustus: 8, aug: 8, august: 8, sep: 9, sept: 9, september: 9,
+      okt: 10, oktober: 10, oct: 10, october: 10, nov: 11, november: 11, des: 12, desember: 12, dec: 12, december: 12
+    };
+    let DATE_ORDER = 'MDY'; // dideteksi otomatis dari data: 'MDY' (11/21/2026) atau 'DMY' (21/11/2026)
+
+    function detectDateOrder(list) {
+      let dmy = false, mdy = false;
+      list.forEach((item) => {
+        const m = String(item.tanggal || '').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+        if (!m) return;
+        if (+m[1] > 12) dmy = true;
+        if (+m[2] > 12) mdy = true;
+      });
+      return dmy && !mdy ? 'DMY' : 'MDY';
+    }
+
+    function parseDateParts(raw) {
+      const str = String(raw || '').trim();
+      if (!str || str === '-') return null;
+      let m = str.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+      if (m) {
+        const mo = +m[2];
+        return mo >= 1 && mo <= 12 ? { y: +m[1], m: mo } : null;
+      }
+      m = str.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+      if (m) {
+        const a = +m[1], b = +m[2];
+        let y = +m[3];
+        if (y < 100) y += 2000;
+        let mo;
+        if (a > 12) mo = b;
+        else if (b > 12) mo = a;
+        else mo = DATE_ORDER === 'DMY' ? b : a;
+        return mo >= 1 && mo <= 12 ? { y, m: mo } : null;
+      }
+      const word = str.toLowerCase().match(/[a-z]{3,}/);
+      const year = str.match(/(\d{4})/);
+      if (word && year && MONTH_LOOKUP[word[0]]) return { y: +year[1], m: MONTH_LOOKUP[word[0]] };
+      return null;
+    }
+
+    function populateDateFilters() {
+      DATE_ORDER = detectDateOrder(appState.candidates);
+      const yearSel = document.getElementById('filterYear');
+      const monthSel = document.getElementById('filterMonth');
+      if (!yearSel || !monthSel) return;
+
+      const prevYear = yearSel.value;
+      const prevMonth = monthSel.value;
+      const years = Array.from(new Set(
+        appState.candidates.map((c) => parseDateParts(c.tanggal)).filter(Boolean).map((d) => d.y)
+      )).sort((a, b) => b - a).map(String);
+
+      yearSel.innerHTML = '<option value="ALL">Semua Tahun</option>' + years.map((y) => `<option value="${y}">${y}</option>`).join('');
+      yearSel.value = years.includes(prevYear) ? prevYear : 'ALL';
+
+      monthSel.innerHTML = '<option value="ALL">Semua Bulan</option>' +
+        MONTH_NAMES_ID.map((n, i) => `<option value="${i + 1}">${n}</option>`).join('');
+      monthSel.value = prevMonth && prevMonth !== 'ALL' ? prevMonth : 'ALL';
+    }
+
     function populateDynamicFilters() {
+      populateDateFilters();
       const configs = [
         { id: 'filterBro', field: 'bro', defaultLabel: 'Semua BRO' },
         { id: 'filterSource', field: 'source', defaultLabel: 'Semua Source' },
@@ -1273,6 +1355,8 @@
       const source = document.getElementById('filterSource').value;
       const status = document.getElementById('filterStatus').value;
       const result = document.getElementById('filterResult').value;
+      const year = document.getElementById('filterYear').value;
+      const month = document.getElementById('filterMonth').value;
 
       let activeFilters = 0;
       if (search) activeFilters++;
@@ -1281,6 +1365,8 @@
       if (source !== 'ALL') activeFilters++;
       if (status !== 'ALL') activeFilters++;
       if (result !== 'ALL') activeFilters++;
+      if (year !== 'ALL') activeFilters++;
+      if (month !== 'ALL') activeFilters++;
 
       const filterBadge = document.getElementById('activeFilterBadge');
       if (activeFilters > 0) {
@@ -1296,6 +1382,13 @@
         if (source !== 'ALL' && item.source !== source) return false;
         if (status !== 'ALL' && item.statusProgress !== status) return false;
         if (result !== 'ALL' && item.hasil !== result) return false;
+
+        if (year !== 'ALL' || month !== 'ALL') {
+          const parts = parseDateParts(item.tanggal);
+          if (!parts) return false;
+          if (year !== 'ALL' && parts.y !== Number(year)) return false;
+          if (month !== 'ALL' && parts.m !== Number(month)) return false;
+        }
 
         if (search) {
           const haystack = `${item.nama} ${item.noHp} ${item.alamat} ${item.keterangan} ${item.bro} ${item.cabang}`.toLowerCase();
@@ -1318,6 +1411,8 @@
       document.getElementById('filterSource').value = 'ALL';
       document.getElementById('filterStatus').value = 'ALL';
       document.getElementById('filterResult').value = 'ALL';
+      document.getElementById('filterYear').value = 'ALL';
+      document.getElementById('filterMonth').value = 'ALL';
       applyFilters();
     }
 
@@ -1959,10 +2054,10 @@
       const parts = [];
       const q = (document.getElementById('filterSearch').value || '').trim();
       if (q) parts.push(`Cari: "${q}"`);
-      [['filterBranch', 'Cabang'], ['filterBro', 'BRO'], ['filterSource', 'Source'], ['filterStatus', 'Progress'], ['filterResult', 'Hasil']]
+      [['filterYear', 'Tahun'], ['filterMonth', 'Bulan'], ['filterBranch', 'Cabang'], ['filterBro', 'BRO'], ['filterSource', 'Source'], ['filterStatus', 'Progress'], ['filterResult', 'Hasil']]
         .forEach(([id, label]) => {
-          const v = document.getElementById(id).value;
-          if (v && v !== 'ALL') parts.push(`${label}: ${v}`);
+          const el = document.getElementById(id);
+          if (el.value && el.value !== 'ALL') parts.push(`${label}: ${el.selectedOptions[0].textContent}`);
         });
       return parts.length ? parts.join('  |  ') : 'Semua data (tanpa filter)';
     }

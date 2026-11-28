@@ -326,6 +326,31 @@
       </div>
     </section>
 
+    <!-- Diagram Garis Progresif -->
+    <section aria-label="Tren Progresif Kandidat" class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Tren Progresif Kandidat</h2>
+          <p id="trendSubtitle" class="text-xs text-slate-500">Akumulasi kandidat dari waktu ke waktu berdasarkan tanggal di logbook</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+            <button id="btnTrendCum" type="button" onclick="setTrendMode('cumulative')" class="px-2.5 py-1 rounded-lg bg-white text-slate-900 shadow-2xs cursor-pointer">Kumulatif</button>
+            <button id="btnTrendPeriod" type="button" onclick="setTrendMode('period')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Per Periode</button>
+          </div>
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+            <button id="btnTrendDay" type="button" onclick="setTrendGranularity('day')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Harian</button>
+            <button id="btnTrendWeek" type="button" onclick="setTrendGranularity('week')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Mingguan</button>
+            <button id="btnTrendMonth" type="button" onclick="setTrendGranularity('month')" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Bulanan</button>
+          </div>
+        </div>
+      </div>
+      <div class="relative h-[320px] w-full">
+        <canvas id="trendChartCanvas"></canvas>
+      </div>
+      <p id="trendNote" class="hidden mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"></p>
+    </section>
+
     <!-- Ringkasan Performa 10 Cabang -->
     <section aria-label="Ringkasan Performa 10 Cabang" class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -760,6 +785,9 @@
 
     let branchChart = null;
     let distributionChart = null;
+    let trendChart = null;
+    let trendGranularity = null; // null = otomatis
+    let trendMode = 'cumulative'; // 'cumulative' | 'period'
     let countdownInterval = null;
     let remainingSeconds = Math.floor(DEFAULT_AUTO_REFRESH_MS / 1000);
     let isSyncing = false;
@@ -1246,17 +1274,18 @@
       agu: 8, agt: 8, agus: 8, agustus: 8, aug: 8, august: 8, sep: 9, sept: 9, september: 9,
       okt: 10, oktober: 10, oct: 10, october: 10, nov: 11, november: 11, des: 12, desember: 12, dec: 12, december: 12
     };
-    let DATE_ORDER = 'MDY'; // dideteksi otomatis dari data: 'MDY' (11/21/2026) atau 'DMY' (21/11/2026)
+    let DATE_ORDER = 'DMY'; // dideteksi otomatis dari data: 'DMY' (21/11/2026) atau 'MDY' (11/21/2026)
 
     function detectDateOrder(list) {
-      let dmy = false, mdy = false;
+      let dmy = 0, mdy = 0;
       list.forEach((item) => {
-        const m = String(item.tanggal || '').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+        const m = String(item.tanggal || '').trim().match(/^(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})/);
         if (!m) return;
-        if (+m[1] > 12) dmy = true;
-        if (+m[2] > 12) mdy = true;
+        if (+m[1] > 12) dmy++;
+        if (+m[2] > 12) mdy++;
       });
-      return dmy && !mdy ? 'DMY' : 'MDY';
+      if (mdy > dmy) return 'MDY';
+      return 'DMY'; // default: format Indonesia (23/10/2026)
     }
 
     function parseDateParts(raw) {
@@ -1265,22 +1294,26 @@
       let m = str.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
       if (m) {
         const mo = +m[2];
-        return mo >= 1 && mo <= 12 ? { y: +m[1], m: mo } : null;
+        return mo >= 1 && mo <= 12 ? { y: +m[1], m: mo, d: +m[3] } : null;
       }
-      m = str.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+      m = str.match(/^(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})/);
       if (m) {
         const a = +m[1], b = +m[2];
         let y = +m[3];
         if (y < 100) y += 2000;
-        let mo;
-        if (a > 12) mo = b;
-        else if (b > 12) mo = a;
-        else mo = DATE_ORDER === 'DMY' ? b : a;
-        return mo >= 1 && mo <= 12 ? { y, m: mo } : null;
+        let mo, d;
+        if (a > 12) { mo = b; d = a; }
+        else if (b > 12) { mo = a; d = b; }
+        else if (DATE_ORDER === 'DMY') { mo = b; d = a; }
+        else { mo = a; d = b; }
+        return mo >= 1 && mo <= 12 ? { y, m: mo, d } : null;
       }
       const word = str.toLowerCase().match(/[a-z]{3,}/);
       const year = str.match(/(\d{4})/);
-      if (word && year && MONTH_LOOKUP[word[0]]) return { y: +year[1], m: MONTH_LOOKUP[word[0]] };
+      if (word && year && MONTH_LOOKUP[word[0]]) {
+        const dayM = str.replace(year[1], ' ').match(/\b(\d{1,2})\b/);
+        return { y: +year[1], m: MONTH_LOOKUP[word[0]], d: dayM ? +dayM[1] : 1 };
+      }
       return null;
     }
 
@@ -1332,15 +1365,17 @@
       });
     }
 
+    function isRejectedResult(hasilText) {
+      const h = (hasilText || '').toLowerCase();
+      return h.includes('cancel') || h.includes('tidak') || h.includes('gagal') || h.includes('tolak') || h.includes('batal');
+    }
+
     function isAcceptedResult(hasilText) {
       const h = (hasilText || '').toLowerCase();
+      if (isRejectedResult(h)) return false; // "CANCEL JOINT", "TIDAK JOINT", "TIDAK LOLOS" bukan lolos
       return h.includes('joint') || h.includes('lolos') || h.includes('diterima') || h.includes('hire');
     }
 
-    function isRejectedResult(hasilText) {
-      const h = (hasilText || '').toLowerCase();
-      return h.includes('cancel') || h.includes('tidak lolos') || h.includes('gagal') || h.includes('tolak');
-    }
 
     function isInProcessResult(hasilText) {
       if (!hasilText || hasilText === '-') return true;
@@ -1505,6 +1540,165 @@
     function renderCharts(data) {
       renderBranchBarChart(data);
       renderDistributionDoughnutChart(data);
+      renderTrendChart(data);
+    }
+
+    const MONTH_SHORT_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const DAY_MS = 86400000;
+
+    /**
+     * Membangun deret waktu progresif (dipakai grafik dashboard & PDF).
+     * Tanggal di masa depan (mis. salah ketik tahun 2027) dan tanggal tidak valid diabaikan.
+     */
+    function buildTrendSeries(data, granularity, mode) {
+      const now = new Date();
+      const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+      let noDate = 0, future = 0;
+      const items = [];
+      (data || []).forEach((c) => {
+        const p = parseDateParts(c.tanggal);
+        if (!p) { noDate++; return; }
+        const t = Date.UTC(p.y, p.m - 1, p.d || 1);
+        if (t > todayUTC) { future++; return; }
+        items.push({ t, acc: isAcceptedResult(c.hasil), rej: isRejectedResult(c.hasil) });
+      });
+
+      const empty = { labels: [], fullLabels: [], total: [], process: [], accepted: [], rejected: [], noDate, future, granularity: granularity || 'day', mode };
+      if (!items.length) return empty;
+
+      const minT = Math.min(...items.map((i) => i.t));
+      const maxT = Math.max(...items.map((i) => i.t));
+      const spanDays = (maxT - minT) / DAY_MS;
+
+      let gran = granularity || (spanDays <= 62 ? 'day' : spanDays <= 270 ? 'week' : 'month');
+      if (gran === 'day' && spanDays > 400) gran = 'week';
+      if (gran === 'week' && spanDays > 2500) gran = 'month';
+
+      const startOf = (t) => {
+        if (gran === 'day') return t;
+        const d = new Date(t);
+        if (gran === 'week') return t - ((d.getUTCDay() + 6) % 7) * DAY_MS;
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+      };
+      const nextOf = (t) => {
+        if (gran === 'day') return t + DAY_MS;
+        if (gran === 'week') return t + 7 * DAY_MS;
+        const d = new Date(t);
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+      };
+
+      const starts = [];
+      for (let t = startOf(minT); t <= startOf(maxT); t = nextOf(t)) starts.push(t);
+      const idxOf = new Map(starts.map((t, i) => [t, i]));
+
+      const tot = starts.map(() => 0), acc = starts.map(() => 0), rej = starts.map(() => 0);
+      items.forEach((it) => {
+        const i = idxOf.get(startOf(it.t));
+        tot[i]++;
+        if (it.acc) acc[i]++;
+        else if (it.rej) rej[i]++;
+      });
+
+      const multiYear = new Date(minT).getUTCFullYear() !== new Date(maxT).getUTCFullYear();
+      const fmt = (t) => {
+        const d = new Date(t);
+        if (gran === 'month') return `${MONTH_SHORT_ID[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+        return `${d.getUTCDate()} ${MONTH_SHORT_ID[d.getUTCMonth()]}${multiYear ? ' ' + String(d.getUTCFullYear()).slice(2) : ''}`;
+      };
+      const labels = starts.map(fmt);
+      const fullLabels = starts.map((t) => {
+        if (gran === 'week') return `Minggu ${fmt(t)} - ${fmt(t + 6 * DAY_MS)}`;
+        return fmt(t);
+      });
+
+      let total = tot, accepted = acc, rejected = rej;
+      let process = tot.map((v, i) => v - acc[i] - rej[i]);
+      if (mode === 'cumulative') {
+        const cum = (arr) => { let s = 0; return arr.map((v) => (s += v)); };
+        total = cum(tot); accepted = cum(acc); rejected = cum(rej); process = cum(process);
+      }
+      return { labels, fullLabels, total, process, accepted, rejected, noDate, future, granularity: gran, mode };
+    }
+
+    function setTrendMode(mode) {
+      trendMode = mode;
+      renderTrendChart(window.__filteredData || appState.candidates);
+    }
+
+    function setTrendGranularity(g) {
+      trendGranularity = g;
+      renderTrendChart(window.__filteredData || appState.candidates);
+    }
+
+    function renderTrendChart(data) {
+      const canvas = document.getElementById('trendChartCanvas');
+      if (!canvas) return;
+      if (trendChart) trendChart.destroy();
+
+      const series = buildTrendSeries(data, trendGranularity, trendMode);
+
+      // tombol aktif
+      const on = 'px-2.5 py-1 rounded-lg bg-white text-slate-900 shadow-2xs cursor-pointer';
+      const off = 'px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer';
+      document.getElementById('btnTrendCum').className = trendMode === 'cumulative' ? on : off;
+      document.getElementById('btnTrendPeriod').className = trendMode === 'period' ? on : off;
+      document.getElementById('btnTrendDay').className = series.granularity === 'day' ? on : off;
+      document.getElementById('btnTrendWeek').className = series.granularity === 'week' ? on : off;
+      document.getElementById('btnTrendMonth').className = series.granularity === 'month' ? on : off;
+      document.getElementById('trendSubtitle').textContent = trendMode === 'cumulative'
+        ? 'Akumulasi kandidat dari waktu ke waktu berdasarkan tanggal di logbook'
+        : 'Jumlah kandidat baru pada setiap periode berdasarkan tanggal di logbook';
+
+      const note = document.getElementById('trendNote');
+      const notes = [];
+      if (series.future > 0) notes.push(`${series.future} kandidat bertanggal di masa depan (kemungkinan salah ketik tahun di spreadsheet)`);
+      if (series.noDate > 0) notes.push(`${series.noDate} kandidat tanpa tanggal valid`);
+      if (notes.length) {
+        note.textContent = `Tidak ditampilkan di grafik ini: ${notes.join(' dan ')}.`;
+        note.classList.remove('hidden');
+      } else {
+        note.classList.add('hidden');
+      }
+
+      const manyPoints = series.labels.length > 45;
+      const mk = (label, values, color, extra = {}) => ({
+        label,
+        data: values,
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: 2.5,
+        tension: 0.3,
+        pointRadius: manyPoints ? 0 : 3,
+        pointHoverRadius: 5,
+        fill: false,
+        ...extra
+      });
+
+      trendChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: series.labels,
+          datasets: [
+            mk('Total Kandidat', series.total, '#4f46e5', { fill: true, backgroundColor: 'rgba(79,70,229,0.08)' }),
+            mk('Dalam Proses', series.process, '#3b82f6'),
+            mk('Lolos / Joint CRO', series.accepted, '#10b981'),
+            mk('Tidak Lolos / Cancel', series.rejected, '#ef4444')
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } } },
+            tooltip: { callbacks: { title: (items) => series.fullLabels[items[0]?.dataIndex ?? 0] || '' } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 16 } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter', size: 11 } }, grid: { color: '#f1f5f9' } }
+          }
+        }
+      });
     }
 
     function renderBranchBarChart(data) {
@@ -1612,25 +1806,69 @@
         return;
       }
 
+      const totalCount = values.reduce((a, b) => a + b, 0);
+      const pctText = (v) => (totalCount ? (v / totalCount) * 100 : 0).toFixed(1).replace('.', ',') + '%';
+      const nameOf = (l) => (l === '-' ? 'Belum diisi' : l);
+      const bgColors = labels.map((_, idx) => palette[idx % palette.length]);
+
+      const slicePercentPlugin = {
+        id: 'slicePercent',
+        afterDatasetsDraw(chart) {
+          const c = chart.ctx;
+          const meta = chart.getDatasetMeta(0);
+          c.save();
+          c.fillStyle = '#ffffff';
+          c.font = '600 11px Inter, sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          meta.data.forEach((arc, i) => {
+            if (!chart.getDataVisibility(i)) return;
+            const v = values[i];
+            if (!totalCount || v / totalCount < 0.06) return;
+            const pt = arc.getCenterPoint();
+            c.fillText(pctText(v), pt.x, pt.y);
+          });
+          c.restore();
+        }
+      };
+
       distributionChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
           labels,
           datasets: [{
             data: values,
-            backgroundColor: labels.map((_, idx) => palette[idx % palette.length]),
+            backgroundColor: bgColors,
             borderWidth: 2,
             borderColor: '#ffffff'
           }]
         },
+        plugins: [slicePercentPlugin],
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          cutout: '64%',
+          cutout: '56%',
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } }
+              labels: {
+                usePointStyle: true,
+                boxWidth: 8,
+                font: { family: 'Inter', size: 11 },
+                generateLabels: (chart) => chart.data.labels.map((l, i) => ({
+                  text: `${nameOf(l)}: ${values[i]} (${pctText(values[i])})`,
+                  fillStyle: bgColors[i],
+                  strokeStyle: bgColors[i],
+                  pointStyle: 'circle',
+                  hidden: !chart.getDataVisibility(i),
+                  index: i
+                }))
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (item) => ` ${nameOf(item.label)}: ${item.parsed} kandidat (${pctText(item.parsed)})`
+              }
             }
           }
         }
@@ -1921,7 +2159,7 @@
 
         results.push({
           id: `sheet-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-          tanggal: (tanggal || '').trim() || '11/21/2026',
+          tanggal: (tanggal || '').trim() || '-',
           cabang: resolvedBranch,
           bro: cleanBro || '-',
           source: (source || '-').trim(),
@@ -2253,6 +2491,84 @@
         doc.text(String(row.n), (row.n > 0 ? cx : barX) + 3, y + 4.5);
       });
 
+      /* ---------- Slide: Tren Progresif ---------- */
+      doc.addPage();
+      const trend = buildTrendSeries(data, trendGranularity, 'cumulative');
+      const granLabel = { day: 'Harian', week: 'Mingguan', month: 'Bulanan' }[trend.granularity] || '';
+      header('Tren Progresif Kandidat', `Kumulatif | ${granLabel}`);
+
+      const tSeries = [
+        ['Total Kandidat', trend.total, PDF_C.indigo],
+        ['Dalam Proses', trend.process, PDF_C.blue],
+        ['Lolos / Joint CRO', trend.accepted, PDF_C.green],
+        ['Tidak Lolos / Cancel', trend.rejected, PDF_C.red]
+      ];
+      let tlx = M;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      tSeries.forEach(([label, , col]) => {
+        setFill(col);
+        doc.roundedRect(tlx, 29.5, 4, 4, 1, 1, 'F');
+        setText(PDF_C.ink);
+        doc.text(label, tlx + 6, 33);
+        tlx += 8 + doc.getTextWidth(label) + 8;
+      });
+
+      const cx0 = M + 12, cx1 = W - M - 14, cyTop = 42, cyBot = H - 30;
+      const nPts = trend.labels.length;
+      if (!nPts) {
+        setText(PDF_C.muted);
+        doc.setFontSize(11);
+        doc.text('Belum ada data bertanggal untuk ditampilkan.', W / 2, H / 2, { align: 'center' });
+      } else {
+        const rawMax = Math.max(1, ...trend.total);
+        const stepChoices = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000];
+        const yStep = stepChoices.find((st) => rawMax / st <= 6) || 1000;
+        const yMax = Math.ceil(rawMax / yStep) * yStep;
+        const yPos = (v) => cyBot - (v / yMax) * (cyBot - cyTop);
+        const xPos = (i) => (nPts === 1 ? (cx0 + cx1) / 2 : cx0 + (i * (cx1 - cx0)) / (nPts - 1));
+
+        doc.setFontSize(8);
+        for (let v = 0; v <= yMax; v += yStep) {
+          setDraw(PDF_C.line);
+          doc.setLineWidth(0.2);
+          doc.line(cx0, yPos(v), cx1, yPos(v));
+          setText(PDF_C.muted);
+          doc.setFont('helvetica', 'normal');
+          doc.text(String(v), cx0 - 3, yPos(v) + 1, { align: 'right' });
+        }
+        const lblEvery = Math.max(1, Math.ceil(nPts / 12));
+        trend.labels.forEach((lb, i) => {
+          if (i % lblEvery !== 0 && i !== nPts - 1) return;
+          setText(PDF_C.muted);
+          doc.setFontSize(7.5);
+          doc.text(lb, xPos(i), cyBot + 5, { align: 'center' });
+        });
+
+        tSeries.forEach(([, vals, col]) => {
+          setDraw(col);
+          setFill(col);
+          doc.setLineWidth(0.8);
+          for (let i = 1; i < nPts; i++) doc.line(xPos(i - 1), yPos(vals[i - 1]), xPos(i), yPos(vals[i]));
+          if (nPts <= 45) vals.forEach((v, i) => doc.circle(xPos(i), yPos(v), 0.9, 'F'));
+          setText(col);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.text(String(vals[nPts - 1]), xPos(nPts - 1) + 2.5, yPos(vals[nPts - 1]) + 1);
+        });
+        doc.setLineWidth(0.2);
+      }
+
+      const tNotes = [];
+      if (trend.future > 0) tNotes.push(`${trend.future} kandidat bertanggal di masa depan`);
+      if (trend.noDate > 0) tNotes.push(`${trend.noDate} kandidat tanpa tanggal valid`);
+      if (tNotes.length) {
+        setText(PDF_C.amber);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(`Catatan: ${tNotes.join(' dan ')} tidak ditampilkan pada grafik ini.`, M, H - 14);
+      }
+
       /* ---------- Slide 4: Distribusi ---------- */
       doc.addPage();
       header('Distribusi Kandidat', 'Status Progress | Hasil | Source');
@@ -2275,6 +2591,7 @@
 
         const entries = pdfCountBy(data, pn.field, 8);
         const maxV = Math.max(1, ...entries.map((e) => e[1]));
+        const sumAll = Math.max(1, entries.reduce((t, e) => t + e[1], 0));
         if (!entries.length) {
           setText(PDF_C.muted);
           doc.setFont('helvetica', 'normal');
@@ -2288,13 +2605,13 @@
           setText(PDF_C.ink);
           doc.text(pdfFit(doc, label === '-' ? 'Belum diisi' : label, pw - 12), x + 6, y);
           setFill([226, 232, 240]);
-          doc.roundedRect(x + 6, y + 1.8, pw - 12 - 12, 3.4, 1.2, 1.2, 'F');
+          doc.roundedRect(x + 6, y + 1.8, pw - 12 - 22, 3.4, 1.2, 1.2, 'F');
           setFill(pn.color);
-          const bw = Math.max(1.5, (n / maxV) * (pw - 24));
+          const bw = Math.max(1.5, (n / maxV) * (pw - 34));
           doc.roundedRect(x + 6, y + 1.8, bw, 3.4, 1.2, 1.2, 'F');
           setText(PDF_C.muted);
           doc.setFont('helvetica', 'bold');
-          doc.text(String(n), x + pw - 6, y + 5, { align: 'right' });
+          doc.text(`${n} (${((n / sumAll) * 100).toFixed(1).replace('.', ',')}%)`, x + pw - 6, y + 5, { align: 'right' });
         });
       });
 
